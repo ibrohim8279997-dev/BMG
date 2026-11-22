@@ -256,3 +256,27 @@ class PublicCatalog(Base):
         r = self.api.get("/api/v1/products", {'q': "' OR 1=1; DROP TABLE catalog_product;--"})
         self.assertEqual((r.status_code, r.json()['total']), (200, 0))
         self.assertEqual(self.api.get('/api/v1/products').json()['total'], 1)
+
+
+class CatalogFilters(Base):
+    def setUp(self):
+        super().setUp()
+        s = self.seller()
+        self.offer(s, price=100, name='A', cat='cement')
+        self.offer(s, price=500, name='B', cat='cement')
+        self.offer(s, price=900, name='C', cat='paint')
+
+    def names(self, **q):
+        return [p['name'] for p in self.api.get('/api/v1/products', q).json()['results']]
+
+    def test_price_filter_and_sort(self):
+        self.assertEqual(self.names(price_min='200'), ['B', 'C'])
+        self.assertEqual(self.names(price_max='500', sort='price_desc'), ['B', 'A'])
+        self.assertEqual(self.names(sort='price_desc'), ['C', 'B', 'A'])
+        self.assertEqual(self.api.get('/api/v1/products', {'price_min': 'abc'}).status_code, 400)
+
+    def test_best_offer_id_and_category_counts(self):
+        r = self.api.get('/api/v1/products', {'category': 'paint'}).json()['results'][0]
+        self.assertTrue(r['best_offer_id'])
+        cats = {c['slug']: c['count'] for c in self.api.get('/api/v1/categories').json()}
+        self.assertEqual((cats['cement'], cats['paint']), (2, 1))

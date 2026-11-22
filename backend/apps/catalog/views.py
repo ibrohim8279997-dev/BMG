@@ -1,7 +1,7 @@
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
-from django.db.models import Count, Min, Q
+from django.db.models import Count, Min, OuterRef, Q, Subquery
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -32,7 +32,10 @@ class Categories(APIView):
 
     def get(self, request):
         lang = lang_of(request)
+        counts = dict(Product.objects.filter(offers__in=live_offers()).values_list('category_id')
+                      .annotate(n=Count('id', distinct=True)))
         return Response([{'slug': c.slug, 'name': c.name(lang), 'parent': c.parent.slug if c.parent else None,
+                          'count': counts.get(c.id, 0),
                           'names': {'uz': c.name_uz, 'ru': c.name_ru, 'en': c.name_en}}
                          for c in Category.objects.select_related('parent')])
 
@@ -63,7 +66,18 @@ class Products(APIView):
         qs = qs.annotate(min_price=Min('offers__price', filter=Q(offers__active=True, offers__stock__gt=0,
                                                                    offers__seller__status='approved')),
                          n=Count('offers', filter=Q(offers__active=True, offers__stock__gt=0,
-                                                     offers__seller__status='approved'))).order_by('name')
+                                                     offers__seller__status='approved')),
+                         best_offer=Subquery(live_offers().filter(product=OuterRef('pk')).order_by('price')
+                                             .values('id')[:1]))
+        for key, lookup in (('price_min', 'min_price__gte'), ('price_max', 'min_price__lte')):
+            raw = request.query_params.get(key)
+            if raw:
+                try:
+                    qs = qs.filter(**{lookup: Decimal(raw)})
+                except InvalidOperation:
+                    return Response({'error': 'invalid_request'}, status=400)
+        qs = qs.order_by({'price_asc': 'min_price', 'price_desc': '-min_price'}.get(
+            request.query_params.get('sort'), 'name'), 'id')
         try:
             page = max(1, int(request.query_params.get('page', 1)))
         except ValueError:
@@ -73,7 +87,8 @@ class Products(APIView):
         items = qs.select_related('category')[(page - 1) * size: page * size]
         return Response({'total': total, 'page': page, 'page_size': size, 'results': [
             {'id': p.id, 'name': p.name, 'unit': p.unit, 'category': p.category.slug,
-             'min_price': f'{Decimal(p.min_price):.2f}', 'offers': p.n} for p in items]})
+             'min_price': f'{Decimal(p.min_price):.2f}', 'offers': p.n,
+             'best_offer_id': p.best_offer} for p in items]})
 
 
 class ProductDetail(APIView):

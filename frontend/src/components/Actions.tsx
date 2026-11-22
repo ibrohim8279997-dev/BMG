@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import { ErrorText } from './Bits';
 import { useAuth, useLang, useT } from './Providers';
 
-export function AddToCart({ offerId }: { offerId: number }) {
+export function AddToCart({ offerId, compact = false }: { offerId: number; compact?: boolean }) {
   const t = useT();
   const lang = useLang();
   const router = useRouter();
@@ -21,8 +21,8 @@ export function AddToCart({ offerId }: { offerId: number }) {
   }
   return (
     <span>
-      <input style={{ width: 90, marginRight: 8 }} type="number" min="0.001" step="any" value={qty} onChange={(e) => setQty(e.target.value)} aria-label={t('qty')} />
-      <button className="btn small" onClick={add}>{done ? '✓' : t('cart.add')}</button>
+      {!compact && <input style={{ width: 90, marginRight: 8 }} type="number" min="0.001" step="any" value={qty} onChange={(e) => setQty(e.target.value)} aria-label={t('qty')} />}
+      <button className={`btn small ${compact ? 'block ghost' : ''}`} onClick={add}>{done ? '✓' : `🛒 ${t('cart.add')}`}</button>
       <ErrorText code={err} />
     </span>
   );

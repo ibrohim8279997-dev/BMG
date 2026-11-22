@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { LANGS } from '@/i18n';
 import { api } from '@/lib/api';
+import Logo from './Logo';
 import { useAuth, useLang, useT } from './Providers';
 
 function ThemeToggle() {
@@ -43,7 +44,7 @@ export default function Header() {
   return (
     <header className="header">
       <div className="container bar">
-        <Link href={L('')} className="logo">BMG</Link>
+        <Link href={L('')} className="logo"><Logo /></Link>
         <button className="btn ghost burger" onClick={() => setOpen(!open)} aria-label="menu">☰</button>
         <nav className={`nav ${open ? 'open' : ''}`} onClick={() => setOpen(false)}>
           <Link href={L('/catalog')}>{t('nav.catalog')}</Link>

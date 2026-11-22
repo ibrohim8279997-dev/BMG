@@ -1,11 +1,11 @@
 import { notFound } from 'next/navigation';
+import CatalogLayout from '@/components/CatalogLayout';
 import { Lang } from '@/i18n';
 import { serverApi } from '@/lib/api';
 import { pageMeta } from '@/lib/seo';
 import { serverT } from '@/lib/server';
-import { ProductGrid } from '@/components/ProductGrid';
 
-type P = { params: Promise<{ lang: Lang; slug: string }> };
+type P = { params: Promise<{ lang: Lang; slug: string }>; searchParams: Promise<Record<string, string | undefined>> };
 
 export async function generateMetadata({ params }: P) {
   const { lang, slug } = await params;
@@ -16,19 +16,22 @@ export async function generateMetadata({ params }: P) {
     c.description || `${c.name}: ${t('seo.category.desc')}`);
 }
 
-export default async function Category({ params }: P) {
+export default async function Category({ params, searchParams }: P) {
   const { lang, slug } = await params;
+  const sp = await searchParams;
   const t = serverT(lang);
-  const [c, prods] = await Promise.all([
+  const qs = new URLSearchParams({ lang, category: slug });
+  for (const k of ['q', 'page', 'price_min', 'price_max', 'sort']) if (sp[k]) qs.set(k, String(sp[k]).slice(0, 100));
+  const [c, cats, prods] = await Promise.all([
     serverApi<any>(`/api/v1/categories/${slug}?lang=${lang}`),
-    serverApi<any>(`/api/v1/products?category=${slug}&lang=${lang}`),
+    serverApi<any[]>(`/api/v1/categories?lang=${lang}`),
+    serverApi<any>(`/api/v1/products?${qs}`),
   ]);
   if (!c) notFound();
   return (
     <>
-      <h1>{c.name}</h1>
-      {c.description && <p className="muted">{c.description}</p>}
-      <ProductGrid prods={prods} lang={lang} t={t} />
+      <CatalogLayout lang={lang} t={t} cats={cats || []} prods={prods} sp={sp} basePath={`/${lang}/catalog/${slug}`} activeSlug={slug} title={c.name} />
+      {c.description && <p className="muted" style={{ marginTop: 24 }}>{c.description}</p>}
     </>
   );
 }

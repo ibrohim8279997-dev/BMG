@@ -1,10 +1,13 @@
 import Link from 'next/link';
+import HeroCalc from '@/components/HeroCalc';
+import HouseZones from '@/components/HouseZones';
+import { ProductGrid } from '@/components/ProductGrid';
 import { Lang } from '@/i18n';
 import { serverApi } from '@/lib/api';
 import { pageMeta } from '@/lib/seo';
 import { serverT } from '@/lib/server';
 
-export const dynamic = 'force-dynamic';   // categories come from the live API, never frozen at build time
+export const dynamic = 'force-dynamic';   // categories/products come from the live API, never frozen at build time
 
 type P = { params: Promise<{ lang: Lang }> };
 
@@ -17,16 +20,25 @@ export async function generateMetadata({ params }: P) {
 export default async function Home({ params }: P) {
   const { lang } = await params;
   const t = serverT(lang);
-  const cats = (await serverApi<{ slug: string; name: string; parent: string | null }[]>(`/api/v1/categories?lang=${lang}`)) || [];
+  const [cats, prods] = await Promise.all([
+    serverApi<{ slug: string; name: string; parent: string | null; count: number }[]>(`/api/v1/categories?lang=${lang}`),
+    serverApi<any>(`/api/v1/products?lang=${lang}&sort=price_asc`),
+  ]);
+  const popular = prods ? { ...prods, results: prods.results.slice(0, 4) } : null;
   return (
     <>
-      <section className="hero">
-        <h1>{t('home.h1')}</h1>
-        <p>{t('home.sub')}</p>
-        <div className="actions">
-          <Link className="btn" href={`/${lang}/calculator`}>{t('home.cta')}</Link>
-          <Link className="btn ghost" href={`/${lang}/catalog`}>{t('nav.catalog')}</Link>
+      <section className="hero2">
+        <div>
+          <h1>{t('home.h1')}</h1>
+          <p className="lead">{t('home.sub')}</p>
+          <HeroCalc />
         </div>
+        <div className="hero-art"><HouseZones active={['walls', 'roof']} /></div>
+      </section>
+      <section>
+        <h2>{t('home.popular')}</h2>
+        <p className="muted" style={{ marginTop: -8 }}>{t('home.popular_sub')}</p>
+        <ProductGrid prods={popular} lang={lang} t={t} />
       </section>
       <section>
         <h2>{t('home.how')}</h2>
@@ -39,11 +51,12 @@ export default async function Home({ params }: P) {
       <section>
         <h2>{t('catalog.categories')}</h2>
         <div className="grid">
-          {cats.filter((c) => !c.parent).map((c) => (
-            <Link key={c.slug} href={`/${lang}/catalog/${c.slug}`} className="card"><h3>{c.name}</h3></Link>
+          {(cats || []).filter((c) => !c.parent).map((c) => (
+            <Link key={c.slug} href={`/${lang}/catalog/${c.slug}`} className="card"><h3>{c.name}</h3><span className="muted small">{c.count}</span></Link>
           ))}
         </div>
       </section>
+      <div className="trust"><span>{t('trust.prices')}</span><span>{t('trust.delivery')}</span><span>{t('trust.pay')}</span></div>
       <div className="notice">⚠ {t('disclaimer')}</div>
     </>
   );
