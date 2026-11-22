@@ -49,3 +49,9 @@ def verify_code(phone: str, code: str) -> bool:
         obj.used = True
     obj.save(update_fields=['attempts', 'used'])
     return ok
+
+
+def peek_valid_code(phone: str) -> bool:
+    """True when a live, unused code exists (does not consume it)."""
+    obj = (TelegramLoginCode.objects.filter(phone=phone, used=False).order_by('-created_at').first())
+    return bool(obj and obj.expires_at >= timezone.now() and obj.attempts < settings.LOGIN_CODE_MAX_ATTEMPTS)

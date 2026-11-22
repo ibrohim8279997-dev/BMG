@@ -14,6 +14,15 @@ class User(AbstractUser):
     language = models.CharField(max_length=2, default='ru')
     accepted_privacy_at = models.DateTimeField(null=True, blank=True)
     accepted_terms_at = models.DateTimeField(null=True, blank=True)
+    registration_ip = models.GenericIPAddressField(null=True, blank=True)
+
+    def has_staff_perm(self, codename):
+        if not (self.is_active and self.is_staff):
+            return False
+        if self.is_superuser:
+            return True
+        m = getattr(self, 'staff', None)
+        return bool(m and codename in m.role.permissions)
 
 
 class StaffRole(models.Model):
@@ -38,3 +47,24 @@ class TelegramLoginCode(models.Model):
     used = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
+
+
+class TelegramLink(models.Model):
+    """Phone <-> Telegram chat, created when the user shares their own contact with the bot."""
+    phone = models.CharField(max_length=20, unique=True)
+    telegram_id = models.BigIntegerField(unique=True)
+    chat_id = models.BigIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class TotpDevice(models.Model):
+    """Authenticator-app secret for staff (2FA, not SMS)."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='totp')
+    secret = models.CharField(max_length=64)
+    last_used_step = models.BigIntegerField(default=0)  # blocks OTP replay
+
+
+class BackupCode(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='backup_codes')
+    code_hash = models.CharField(max_length=64)
+    used = models.BooleanField(default=False)
