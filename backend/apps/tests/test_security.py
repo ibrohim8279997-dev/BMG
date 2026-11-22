@@ -93,3 +93,18 @@ class SecurityRegression(Base):
                             'import django;from django.conf import settings;settings.SECRET_KEY'],
                            cwd=settings.BASE_DIR, env=env, capture_output=True)
         self.assertNotEqual(r.returncode, 0)
+
+
+class ErrorCodeContract(Base):
+    """Every API error code in the code must be listed (and translated by the frontend test)."""
+
+    def test_error_codes_are_documented(self):
+        listed = set(Path(settings.BASE_DIR, 'apps/tests/error_codes.txt').read_text().split())
+        row_errors = {'name_required', 'price_invalid', 'stock_required', 'category_required'}   # import row errors
+        used = set()
+        for p in Path(settings.BASE_DIR, 'apps').rglob('*.py'):
+            if 'tests' in p.parts or 'migrations' in p.parts:
+                continue
+            used |= set(re.findall(r"""['"]error['"]:\s*['"]([a-z_]+)['"]""", p.read_text()))
+            used |= set(re.findall(r"""(?:OrderError|UploadError|LoginError)\(\s*['"]([a-z_]+)['"]""", p.read_text()))
+        self.assertEqual(sorted(used - listed - row_errors), [])
