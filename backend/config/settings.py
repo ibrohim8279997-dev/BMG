@@ -134,6 +134,9 @@ AI_WEB_SEARCH = env.bool('AI_WEB_SEARCH', default=True)
 
 # --- Private file storage: OUTSIDE the web root, never served directly
 PRIVATE_MEDIA_ROOT = Path(env('PRIVATE_MEDIA_ROOT', default=str(BASE_DIR.parent / 'private_media')))
+if 'test' in __import__('sys').argv:   # tests must never write into the project tree
+    import tempfile
+    PRIVATE_MEDIA_ROOT = Path(tempfile.mkdtemp(prefix='bmg-test-media-'))
 
 # --- Logging: payments get their own file
 LOG_DIR = Path(env('LOG_DIR', default=str(BASE_DIR / 'logs')))
