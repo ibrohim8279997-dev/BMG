@@ -22,5 +22,5 @@ class Command(BaseCommand):
         u = User.objects.create_superuser(username=username, password=pw, role='staff')
         secret = pyotp.random_base32()
         TotpDevice.objects.create(user=u, secret=secret)
-        self.stdout.write('Add to your authenticator app:\n' + pyotp.TOTP(secret).provisioning_uri(username, issuer_name='BMG'))
+        self.stdout.write('Add to your authenticator app:\n' + pyotp.TOTP(secret).provisioning_uri(name=username, issuer_name='BMG'))
         self.stdout.write('Backup codes (store safely, shown once):\n' + '\n'.join(new_backup_codes(u)))

@@ -11,6 +11,7 @@ from apps.core.permissions import IsClient
 from apps.sellers.views import IsApprovedSeller
 
 from . import services as svc
+from .services import m
 from .models import CartItem, Order, OrderItem, PayoutRequest, SellerLedger
 
 
@@ -144,10 +145,10 @@ class SellerAnalytics(APIView):
         data['top'] = [{'name': k, 'revenue': str(v)} for k, v in sorted(by.items(), key=lambda x: -x[1])[:10]]
         with_cost = [i for i in items if i.cost_price is not None]
         if with_cost:   # margin appears only when cost price is known
-            data['margin'] = str(sum((i.line_total - i.cost_price * i.qty for i in with_cost), Decimal('0')))
-            data['margin_covers_revenue'] = str(sum((i.line_total for i in with_cost), Decimal('0')))
+            data['margin'] = m(sum((i.line_total - i.cost_price * i.qty for i in with_cost), Decimal('0')))
+            data['margin_covers_revenue'] = m(sum((i.line_total for i in with_cost), Decimal('0')))
         bal, pending = balance(seller)
-        data['payable_balance'] = str(bal - pending)
+        data['payable_balance'] = m(bal - pending)
         data['disclaimer'] = 'internal'
         return Response(data)
 

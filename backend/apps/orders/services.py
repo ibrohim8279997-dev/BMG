@@ -13,6 +13,10 @@ from .models import CartItem, Order, OrderItem, Refund, SellerLedger
 CENT = Decimal('0.01')
 
 
+def m(d):
+    return str(q(d))
+
+
 def q(d):
     return Decimal(d).quantize(CENT, rounding=ROUND_HALF_UP)
 
@@ -57,7 +61,7 @@ def create_order(user, city, mode):
     total = q(goods + delivery)
     pct = Decimal(str(Setting.get('prepayment_percent' if mode == 'full' else 'prepayment_cash_percent')))
     min_sum = Decimal(str(Setting.get('prepayment_min_order_sum')))
-    prepay = q(total * pct / 100) if total >= min_sum else Decimal('0')
+    prepay = q(total * pct / 100) if total >= min_sum else q(0)
     due = total if mode == 'full' else prepay
     order = Order.objects.create(
         client=user, city=city, payment_mode=mode, goods_total=q(goods), delivery_total=q(delivery), total=total,

@@ -135,6 +135,8 @@ class SellerDetail(AdminBase):
     def patch(self, request, pk):
         s = get_object_or_404(Seller, pk=pk)
         d = request.data
+        if 'identity_verified' in d:
+            s.identity_verified = bool(d['identity_verified'])
         if 'status' in d:
             if d['status'] not in ('pending', 'approved', 'blocked'):
                 return Response({'error': 'invalid_request'}, status=400)
@@ -156,8 +158,6 @@ class SellerDetail(AdminBase):
         if 'commission_level_id' in d:
             s.commission_level = CommissionLevel.objects.filter(pk=d['commission_level_id']).first() \
                 if d['commission_level_id'] else None
-        if 'identity_verified' in d:
-            s.identity_verified = bool(d['identity_verified'])
         s.save()
         audit(request, 'seller_updated', object_type='seller', object_id=s.id, fields=list(d.keys()))
         return Response({'id': s.id, 'status': s.status})
@@ -236,7 +236,7 @@ class StaffUsers(AdminBase):
         TotpDevice.objects.create(user=u, secret=secret)
         codes = new_backup_codes(u)
         audit(request, 'staff_created', object_type='user', object_id=u.id, role=role.name)
-        return Response({'id': u.id, 'totp_uri': pyotp.TOTP(secret).provisioning_uri(username, issuer_name='BMG'),
+        return Response({'id': u.id, 'totp_uri': pyotp.TOTP(secret).provisioning_uri(name=username, issuer_name='BMG'),
                          'backup_codes': codes}, status=201)
 
 
