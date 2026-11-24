@@ -206,6 +206,57 @@ class AdminPanel(Base):
         self.api.patch(f'/admin-api/complaints/{cid}', {'status': 'resolved'}, format='json', REMOTE_ADDR='10.0.0.1')
         self.assertEqual(self.get('/admin-api/complaints').json()[0]['status'], 'resolved')
 
+    def test_seller_applications_visible_and_statuses(self):
+        from apps.sellers.models import SellerApplication
+        self.api.force_authenticate(None)
+        APP = dict(company_name='Acme', contact_name='Ali', phone='+998901112233', category='Cement', accept_privacy=True)
+        self.assertEqual(self.api.post('/api/v1/seller-applications', APP, format='json').status_code, 201)
+        self.in_()
+        rows = self.get('/admin-api/seller-applications').json()
+        self.assertEqual((rows[0]['company_name'], rows[0]['status']), ('Acme', 'new'))
+        for st in ('in_progress', 'approved', 'rejected'):
+            self.assertEqual(self.api.patch(f"/admin-api/seller-applications/{rows[0]['id']}", {'status': st},
+                                            format='json', REMOTE_ADDR='10.0.0.1').status_code, 200)
+            self.assertEqual(SellerApplication.objects.get().status, st)
+        self.assertEqual(self.api.patch(f"/admin-api/seller-applications/{rows[0]['id']}", {'status': 'x'},
+                                        format='json', REMOTE_ADDR='10.0.0.1').status_code, 400)
+
+
+class SellerPublic(Base):
+    APP = dict(company_name='Acme', contact_name='Ali', phone='+998 90 111-22-33', category='Cement', accept_privacy=True)
+
+    def post(self, **kw):
+        d = dict(self.APP); d.update(kw)
+        return self.api.post('/api/v1/seller-applications', d, format='json')
+
+    def test_application_is_stored_for_guest(self):
+        from apps.sellers.models import SellerApplication
+        self.assertEqual(self.post(email='a@b.uz', comment='hi', language='uz').status_code, 201)
+        a = SellerApplication.objects.get()
+        self.assertEqual((a.phone, a.status, a.language), ('+998901112233', 'new', 'uz'))
+
+    def test_application_validation(self):
+        for bad in (dict(company_name=''), dict(contact_name='x'), dict(phone='abc'), dict(email='nope'),
+                    dict(category=''), dict(accept_privacy=False), dict(accept_privacy='true'), dict(comment='x' * 2001)):
+            r = self.post(**bad)
+            self.assertEqual(r.status_code, 400, bad)
+            self.assertEqual(r.json()['error'], 'invalid_request')
+
+    def test_application_is_throttled(self):
+        codes = [self.post().status_code for _ in range(12)]
+        self.assertEqual(codes[9], 201)
+        self.assertEqual(codes[-1], 429)
+
+    def test_seller_list_shows_only_approved_with_real_fields(self):
+        ok = self.seller(); self.offer(ok); self.seller(status='pending'); self.seller(status='blocked')
+        rows = self.api.get('/api/v1/sellers?lang=en').json()
+        self.assertEqual([r['id'] for r in rows], [ok.id])
+        self.assertEqual(rows[0]['categories'], ['cement'])
+        self.assertEqual(rows[0]['regions'], ['Tashkent'])
+        self.assertFalse(rows[0]['verified_by_bmg'])
+        self.assertNotIn('contact_phone', rows[0])
+        self.assertEqual(self.api.get('/api/v1/sellers?q=zzz').json(), [])
+
 
 @override_settings(AI_PROVIDERS=['claude'], AI_KEYS={'claude': 'k'})
 class Calculator(Base):
@@ -295,6 +346,78 @@ class Calculator(Base):
     def test_seller_cannot_create_objects(self):
         self.login(self.seller().user)
         self.assertEqual(self.obj().status_code, 403)
+
+    # --- guest preview (no login, nothing saved)
+    def preview(self, **kw):
+        d = dict(type='house', area=100, floors=2, rooms=4, city='Tashkent', zones=['floor']); d.update(kw)
+        return self.api.post('/api/v1/calculate/preview', d, format='json')
+
+    def test_preview_works_for_guest_and_saves_nothing(self):
+        from apps.calculator.models import ObjectRequest
+        self.api.logout()
+        with mock.patch('apps.ai.service.complete', return_value=self.NORMS):
+            r = self.preview()
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['total'], '50500.00')
+        self.assertEqual(ObjectRequest.objects.count(), 0)
+
+    def test_preview_matches_saved_object_result(self):
+        oid = self.obj().json()['id']
+        with mock.patch('apps.ai.service.complete', return_value=self.NORMS):
+            saved = self.calc(oid).json()
+            self.api.logout()
+            self.assertEqual(self.preview().json()['lines'], saved['lines'])
+
+    def test_preview_validates_input(self):
+        self.api.logout()
+        for bad in (dict(type='castle'), dict(area=0), dict(area='nan'), dict(area='inf'), dict(floors=0), dict(city=''),
+                    dict(zones=['moon']), dict(zones=[]), dict(zones='floor')):
+            self.assertEqual(self.preview(**bad).status_code, 400, bad)
+
+    # --- real dimensions from the 3D designer
+    GEO = dict(length=12, width=8, floor_height=3, roof_type='gable', roof_pitch=30)
+
+    def test_dimensions_drive_the_zone_areas(self):
+        import math
+        from types import SimpleNamespace
+        o = SimpleNamespace(type='house', area=192, floors=2, rooms=3, city='Tashkent', **self.GEO)
+        self.assertAlmostEqual(zone_area(o, 'walls'), 2 * (12 + 8) * 3 * 2)
+        self.assertAlmostEqual(zone_area(o, 'floor'), 12 * 8 * 2)
+        self.assertAlmostEqual(zone_area(o, 'roof'), 96 / math.cos(math.radians(30)) * 1.08)
+        o.roof_type = 'flat'
+        self.assertAlmostEqual(zone_area(o, 'roof'), 96 * 1.03)
+
+    def test_dimensions_override_area_and_are_saved(self):
+        r = self.obj(area=5, **self.GEO)
+        self.assertEqual(r.status_code, 201)
+        j = r.json()
+        self.assertEqual(j['area'], '192.00')            # 12 x 8 x 2 floors
+        self.assertEqual((j['length'], j['roof_type'], j['roof_pitch']), ('12.00', 'gable', 30))
+
+    def test_preview_uses_dimensions(self):
+        self.api.logout()
+        with mock.patch('apps.ai.service.complete', return_value=self.NORMS):
+            r = self.preview(**self.GEO)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['lines'][0]['qty'], 96)     # floor: 192 m2 x 0.5
+
+    def test_dimensions_are_validated(self):
+        self.api.logout()
+        for bad in (dict(length=1), dict(width=301), dict(length='nan'), dict(floor_height=7), dict(roof_type='dome'),
+                    dict(roof_pitch=2), dict(roof_pitch=80), dict(width='')):
+            self.assertEqual(self.preview(**{**self.GEO, **bad}).status_code, 400, bad)
+
+    def test_preview_503_when_norms_unavailable(self):
+        self.api.logout()
+        with mock.patch('apps.ai.service.complete', side_effect=service.AIUnavailable):
+            self.assertEqual(self.preview().status_code, 503)
+
+    def test_preview_is_throttled(self):
+        self.api.logout()
+        with mock.patch('apps.ai.service.complete', return_value=self.NORMS):
+            codes = [self.preview().status_code for _ in range(32)]
+        self.assertEqual(codes[0], 200)
+        self.assertEqual(codes[-1], 429)
 
 
 @override_settings(AI_PROVIDERS=['groq', 'claude', 'grok'], AI_KEYS={'claude': 'k', 'groq': '', 'grok': 'g'})

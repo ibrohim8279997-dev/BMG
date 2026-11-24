@@ -29,6 +29,16 @@ class LegalView(APIView):
                          'title': getattr(d, f'title_{lang}'), 'body': getattr(d, f'body_{lang}')})
 
 
+class PublicConfig(APIView):
+    """BMG's own complaint/support contacts (shown on seller profiles and in the footer)."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        from .models import Setting
+        return Response({k: Setting.get(f'support_{k}') for k in ('phone', 'telegram', 'email')})
+
+
 def esc(s):
     return str(s).replace('&', '&amp;').replace('<', '&lt;')
 
@@ -38,8 +48,10 @@ def sitemap(request):
     base = settings.SITE_URL.rstrip('/')
     paths = ['', '/catalog', '/calculator']
     paths += [f'/catalog/{c.slug}' for c in Category.objects.all()]
-    from apps.catalog.views import live_offers
+    from apps.catalog.views import live_offers, price_pages
     paths += [f'/product/{pid}' for pid in live_offers().values_list('product_id', flat=True).distinct()]
+    from urllib.parse import quote
+    paths += [f'/prices/{slug}/{quote(city)}' for slug, city in price_pages()]
     out = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">']
     for p in paths:

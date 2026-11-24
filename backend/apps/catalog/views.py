@@ -56,19 +56,20 @@ class Products(APIView):
     authentication_classes = []
 
     def get(self, request):
-        qs = Product.objects.filter(offers__in=live_offers()).distinct()
+        base = live_offers()
+        city = request.query_params.get('city', '').strip()[:80]
+        if city:   # offers whose seller delivers to this city (SEO price pages: "cement price Tashkent")
+            base = base.filter(seller__delivery_rules__region__iexact=city)
+        qs = Product.objects.filter(offers__in=base).distinct()
         slug = request.query_params.get('category')
         if slug:
             qs = qs.filter(Q(category__slug=slug) | Q(category__parent__slug=slug))
         q = request.query_params.get('q', '').strip()
         if q:
             qs = qs.filter(name__icontains=q[:100])
-        qs = qs.annotate(min_price=Min('offers__price', filter=Q(offers__active=True, offers__stock__gt=0,
-                                                                   offers__seller__status='approved')),
-                         n=Count('offers', filter=Q(offers__active=True, offers__stock__gt=0,
-                                                     offers__seller__status='approved')),
-                         best_offer=Subquery(live_offers().filter(product=OuterRef('pk')).order_by('price')
-                                             .values('id')[:1]))
+        live = Q(offers__in=base)
+        qs = qs.annotate(min_price=Min('offers__price', filter=live), n=Count('offers', filter=live, distinct=True),
+                         best_offer=Subquery(base.filter(product=OuterRef('pk')).order_by('price').values('id')[:1]))
         for key, lookup in (('price_min', 'min_price__gte'), ('price_max', 'min_price__lte')):
             raw = request.query_params.get(key)
             if raw:
@@ -223,3 +224,22 @@ class MyOfferDetail(APIView):
     def delete(self, request, pk):
         get_object_or_404(Offer, pk=pk, seller=request.user.seller).delete()
         return Response(status=204)
+
+
+def price_pages():
+    """(category slug, city) pairs that have at least one live offer deliverable to that city.
+    These become the SEO landing pages ("cement price Tashkent") and sitemap entries."""
+    seen = set()
+    rows = live_offers().values_list('product__category__slug', 'seller__delivery_rules__region').distinct()
+    for slug, region in rows:
+        if region:
+            seen.add((slug, region.strip()))
+    return sorted(seen)
+
+
+class PricePages(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        return Response([{'category': s, 'city': c} for s, c in price_pages()])

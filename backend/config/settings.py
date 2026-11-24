@@ -19,7 +19,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'apps.core', 'apps.accounts', 'apps.audit', 'apps.uploads', 'apps.sellers',
     'apps.catalog', 'apps.ai', 'apps.calculator', 'apps.payments', 'apps.orders',
-    'apps.support', 'apps.adminpanel',
+    'apps.support',
+    'apps.accounting', 'apps.adminpanel',
 ]
 
 MIDDLEWARE = [
@@ -89,7 +90,7 @@ REST_FRAMEWORK = {
                                  'rest_framework.throttling.UserRateThrottle'],
     'DEFAULT_THROTTLE_RATES': {
         'anon': '120/min', 'user': '300/min', 'login_code': '10/hour', 'login_verify': '30/hour',
-        'ai': '20/min', 'admin_login': '10/hour', 'reveal': '30/hour', 'upload': '30/hour',
+        'ai': '20/min', 'calc_preview': '30/min', 'apply': '10/hour', 'admin_login': '10/hour', 'reveal': '30/hour', 'upload': '30/hour',
     },
     'NUM_PROXIES': env.int('NUM_PROXIES', default=0),  # number of reverse proxies in front
 }
@@ -100,6 +101,8 @@ CACHES = {'default': {'BACKEND': env('CACHE_BACKEND', default='django.core.cache
 TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN', default='')
 TELEGRAM_BOT_USERNAME = env('TELEGRAM_BOT_USERNAME', default='')
 TELEGRAM_WEBHOOK_SECRET = env('TELEGRAM_WEBHOOK_SECRET', default='')
+# --- Google sign-in (off unless a client id is set)
+GOOGLE_CLIENT_ID = env('GOOGLE_CLIENT_ID', default='')
 LOGIN_CODE_TTL_SECONDS = env.int('LOGIN_CODE_TTL_SECONDS', default=150)
 LOGIN_CODE_MAX_ATTEMPTS = env.int('LOGIN_CODE_MAX_ATTEMPTS', default=5)
 MAX_NEW_ACCOUNTS_PER_IP_PER_DAY = env.int('MAX_NEW_ACCOUNTS_PER_IP_PER_DAY', default=5)

@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { ErrorText, RequireAuth } from '@/components/Bits';
+import ReviewForm from '@/components/ReviewForm';
 import { useLang, useT } from '@/components/Providers';
 import { api, money } from '@/lib/api';
 
@@ -41,7 +42,7 @@ function Account() {
   return (
     <>
       <h1>{t('nav.account')}</h1>
-      <div className="tabs">{['wallet', 'orders', 'complaint'].map((x) =>
+      <div className="tabs">{['wallet', 'orders', 'reviews', 'complaint'].map((x) =>
         <button key={x} className={`btn ${tab === x ? 'on' : ''}`} onClick={() => setTab(x)}>{t(`account.${x}`)}</button>)}</div>
       {tab === 'wallet' && wallet && (
         <div className="card">
@@ -67,6 +68,7 @@ function Account() {
           <ErrorText code={err} />
         </div>
       )}
+      {tab === 'reviews' && <ReviewForm />}
       {tab === 'complaint' && (
         <div className="card">
           <div className="field"><label htmlFor="ct">{t('complaint.text')}</label><textarea id="ct" maxLength={3000} value={text} onChange={(e) => setText(e.target.value)} /></div>

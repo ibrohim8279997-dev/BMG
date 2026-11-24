@@ -9,6 +9,7 @@ class User(AbstractUser):
         STAFF = 'staff', 'Staff'
 
     telegram_id = models.BigIntegerField(null=True, blank=True, unique=True)
+    google_sub = models.CharField(max_length=40, null=True, blank=True, unique=True)   # Google account id (login only)
     phone = models.CharField(max_length=20, blank=True, db_index=True)
     role = models.CharField(max_length=10, choices=Role.choices, blank=True)
     language = models.CharField(max_length=2, default='ru')

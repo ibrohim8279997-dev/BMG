@@ -3,8 +3,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { ErrorText } from '@/components/Bits';
+import GoogleSignIn from '@/components/GoogleSignIn';
 import { useAuth, useLang, useT } from '@/components/Providers';
 import { api } from '@/lib/api';
+import { nextFromLocation } from '@/lib/pending';
 
 export default function Login() {
   const t = useT();
@@ -42,7 +44,7 @@ export default function Login() {
         body: { phone, code, language: lang, ...(needReg ? { role, company_name: company, accept_privacy: privacy, accept_terms: terms } : {}) },
       });
       await refresh();
-      router.push(role === 'seller' && needReg ? `/${lang}/seller` : `/${lang}`);
+      router.push(role === 'seller' && needReg ? `/${lang}/seller` : nextFromLocation() || `/${lang}`);
     } catch (e: any) {
       if (e.error === 'registration_required') setNeedReg(true);
       else setErr(e.error);
@@ -61,6 +63,7 @@ export default function Login() {
           {err === 'telegram_not_linked' && (
             <div className="notice">{t('login.link_bot')} {botUrl && <a href={botUrl} target="_blank" rel="noopener noreferrer"><strong>{botUrl}</strong></a>}</div>)}
           <p className="muted small">{t('login.how')}</p>
+          <GoogleSignIn />
         </>
       ) : (
         <>

@@ -1,0 +1,1210 @@
+[
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "apikey.scopes-not-reconstrained-by-creator-current-role",
+    "title": "API key scopes are not re-constrained by the creator current role (demoted creator keeps privileged scopes)",
+    "description": "Verifier assessment: source-verified yes; boundary weak-to-moderate. createKey caps scopes only at creation; loadApiKey checks only that the creator is an active member; H::requirePermission trusts apiScopes (comment says scope-only is intended); updateMember does not touch api_keys; OAuth child tokens inherit scopes. Removal/suspension kills keys (401); only role downgrade leaves them alive, for up to 730 days. Access is limited to KEY_RESOURCES (CRM/finance resources), no team/billing/settings/plugins/platform. Holder is the same principal who legitimately held the rights; keys are visible/revocable via integrations.write.",
+    "claimed_root_cause": "Scope-vs-creator-permission is enforced only at creation; the request path authorizes from stored scopes and role downgrade does not revoke or narrow keys.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/app/Http/Controllers/Api/V1/IntegrationsController.php",
+        "line": 43,
+        "scope": "IntegrationsController.php:43",
+        "description": "Creator-permission cap applied only inside createKey."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/TeamController.php",
+        "line": 141,
+        "scope": "TeamController.php:141",
+        "description": "Role downgrade updates tenant_memberships only."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Middleware/ApiContext.php",
+        "line": 109,
+        "scope": "ApiContext.php:109",
+        "description": "Creator must only have an active membership; role never read."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Support/H.php",
+        "line": 203,
+        "scope": "H.php:203",
+        "description": "apiScopes short-circuits Rbac; stale scopes authorize CRM/finance writes."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "backend/app/Http/Middleware/ApiContext.php",
+        "line": 113,
+        "description": "Liveness = creator has an active membership."
+      },
+      {
+        "file": "backend/app/Http/Controllers/OAuthController.php",
+        "line": 61,
+        "description": "Child tokens inherit created_by/scopes."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "Impact depends on whether admins expect demotion to cut off integrations (design judgement)."
+    ],
+    "validation_plan": {
+      "local": "Test DB: admin creates a key with finance.write; owner demotes the admin to a role without it; POST /expenses with Bearer nxk_ expecting 403 (current 2xx). Repeat after suspension/removal (401) and with an OAuth child token.",
+      "deployment": "Owner reviews GET /integrations/keys and compares each key creator role with its scopes."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "auth.forgot-password.developmentToken-disclosure-nonprod",
+    "title": "forgot-password returns the raw reset token whenever the environment is not production (Worker committed as development)",
+    "description": "Verifier assessment: source-verified yes. Worker POST /auth/forgot-password returns developmentToken for existing accounts unless ENVIRONMENT===\"production\"; wrangler.toml commits ENVIRONMENT=\"development\" next to the nexio-crm-prod D1 binding; Worker login has no MFA, so reset yields a full session (incl. platform admins) and the field is also an account-enumeration oracle. Laravel returns the token when app.env!==\"production\" (default production), so it is exposed only on misconfiguration. docs/ARCHITECTURE.md calls the Worker legacy/not used in production; deployed values are not visible.",
+    "claimed_root_cause": "Reset-token disclosure gated by a deny-list environment check instead of an opt-in debug flag; the committed Worker config selects the unsafe branch.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "api/worker.ts",
+        "line": 39,
+        "scope": "worker.ts:39",
+        "description": "Public route POST /auth/forgot-password."
+      },
+      {
+        "kind": "propagation",
+        "file": "api/routes/auth.ts",
+        "line": 138,
+        "scope": "auth.ts:138",
+        "description": "Creates and stores the hashed token for existing users."
+      },
+      {
+        "kind": "sink",
+        "file": "api/routes/auth.ts",
+        "line": 150,
+        "scope": "auth.ts:150",
+        "description": "Returns developmentToken when ENVIRONMENT !== production; resetPassword (~153) then accepts it."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "wrangler.toml",
+        "line": 19,
+        "description": "ENVIRONMENT = \"development\" committed."
+      },
+      {
+        "file": "backend/app/Http/Controllers/Api/V1/AuthController.php",
+        "line": 483,
+        "description": "Laravel equivalent gated on config(app.env) !== production."
+      },
+      {
+        "file": "backend/config/app.php",
+        "line": 29,
+        "description": "APP_ENV defaults to production."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "Whether the Worker is deployed against production data is unknown (docs say no).",
+      "Deployed ENVIRONMENT / APP_ENV values are not visible (.env not read)."
+    ],
+    "validation_plan": {
+      "local": "Local Worker dev with ENVIRONMENT=development and a dummy user: forgot-password returns developmentToken; reset with it; repeat with ENVIRONMENT=production (field absent). Laravel: same with APP_ENV=local vs production.",
+      "deployment": "Owner checks the effective ENVIRONMENT of any deployed Worker and the APP_ENV of the Laravel host, and uses a test account to confirm the field is absent."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "auth.invite-accept.existing-account-session-no-credential",
+    "title": "Invite accept issues a session for an already-registered user with no password or MFA proof (both stacks)",
+    "description": "Verifier assessment: source-verified yes. A tenant_admin/tenant_owner holding team.write can invite the email of any registered user (any tenant, incl. a platform admin); the inviteUrl with the raw token is returned to the inviter; the unauthenticated accept endpoint then creates a session for the existing user without password, MFA or email proof. If the victim is a platform admin the platform-admin flag is loaded from that user (platform authority follows if H::requirePermission honours it, not re-read by the verifier). Laravel login enforces MFA, accept bypasses it. Worker stack identical.",
+    "claimed_root_cause": "acceptInvite treats possession of the invite token as proof of control of the existing account; invite() discloses the token to the inviter and does not block existing users of other tenants.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/app/Http/Controllers/Api/V1/TeamController.php",
+        "line": 61,
+        "scope": "TeamController.php:61",
+        "description": "Inviter with team.write supplies arbitrary victim email; only same-tenant membership returns 409."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/TeamController.php",
+        "line": 96,
+        "scope": "TeamController.php:96",
+        "description": "Invitation inserted with raw token; inviteUrl with token returned to inviter (~105-112)."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/AuthController.php",
+        "line": 527,
+        "scope": "AuthController.php:527",
+        "description": "acceptInvite loads existing user by invitation email; credential checks apply only to new users."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Http/Controllers/Api/V1/AuthController.php",
+        "line": 552,
+        "scope": "AuthController.php:552",
+        "description": "createSession(victim user id) returns session cookie/native token; Worker equivalent api/routes/auth.ts:180-199."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "backend/app/Http/Controllers/Api/V1/TeamController.php",
+        "line": 84,
+        "description": "Only same-tenant existing member conflicts; cross-tenant and platform-admin emails accepted."
+      },
+      {
+        "file": "api/routes/team.ts",
+        "line": 79,
+        "description": "Worker invite also returns inviteUrl with token."
+      },
+      {
+        "file": "backend/app/Http/Controllers/Api/V1/AuthController.php",
+        "line": 195,
+        "description": "login() enforces MFA via requireSecondFactor; acceptInvite never reads mfa_enabled."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "Whether the platform-admin flag yields platform authority for the resulting session depends on ApiContext/H code not re-read.",
+      "Whether victim emails are knowable to the inviter is a deployment/data fact."
+    ],
+    "validation_plan": {
+      "local": "Throwaway DB: tenant A attacker (tenant_admin); tenant B victim with password+MFA (+platform admin). Attacker POST /team/invite {email:victim}, read token from inviteUrl; unauthenticated POST /invites/{token}/accept; expect 200 + session whose GET /auth/me is the victim. Repeat against Worker with a local D1 fixture.",
+      "deployment": "Owner repeats the flow with dummy accounts on a staging copy only and confirms the audit log shows no password/MFA step."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "auth.reset.laravel-token-no-expiry-plaintext-no-revoke",
+    "title": "Laravel password reset ignores expires_at, never revokes earlier tokens and stores tokens in plaintext",
+    "description": "Verifier assessment: source-verified yes; impact narrower than first claimed. forgotPassword stores the raw token with expires_at=+1h and does not revoke earlier pending reset rows; resetPassword selects by token/role/status with no expires_at predicate, so a stale or leaked reset link works until used (single-use, ~192-bit entropy). Tokens are plaintext at rest (Worker hashes, checks expiry, revokes older). Login still enforces MFA. Exploitation needs a previously issued token (mailbox/log/DB/backup leak). acceptInvite abuse with a reset row is refuted (NOT NULL tenant_memberships.tenant_id).",
+    "claimed_root_cause": "Laravel resetPassword omits the expires_at predicate, forgotPassword does not supersede prior tokens, and tokens are stored unhashed; the Worker implements all three controls.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/routes/api_v1.php",
+        "line": 57,
+        "scope": "api_v1.php:57",
+        "description": "POST /auth/reset-password (public)."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/AuthController.php",
+        "line": 467,
+        "scope": "AuthController.php:467",
+        "description": "forgotPassword inserts raw token with expires_at +3600 and no revocation."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/AuthController.php",
+        "line": 496,
+        "scope": "AuthController.php:496",
+        "description": "SELECT ... WHERE token=? AND role=password_reset AND status=pending, no expires_at condition."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Http/Controllers/Api/V1/AuthController.php",
+        "line": 501,
+        "scope": "AuthController.php:501",
+        "description": "Password hash updated and all sessions deleted."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "api/routes/auth.ts",
+        "line": 146,
+        "description": "Worker revokes older pending reset rows and stores a hash."
+      },
+      {
+        "file": "api/routes/auth.ts",
+        "line": 163,
+        "description": "Worker resetPassword checks expires_at > now."
+      },
+      {
+        "file": "backend/database/schema/0001_init.sql",
+        "line": 44,
+        "description": "tenant_memberships.tenant_id NOT NULL (blocks reset-row acceptInvite abuse)."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "Which backend serves production is a deployment fact.",
+      "Practical exposure of an old reset token is outside source."
+    ],
+    "validation_plan": {
+      "local": "Dummy Laravel instance: forgot-password, push the invitation expires_at to the past, POST reset-password with the token; expect 400 (current 200). Request forgot-password twice and confirm both tokens work; confirm the DB stores the raw token.",
+      "deployment": "Owner checks which backend serves production and queries invitations for stale pending password_reset rows."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "backend/OutboundEndpoint.parse/weak-ssrf-guard-toctou-and-range-gaps",
+    "title": "OutboundEndpoint::parse has a DNS-rebinding window and range gaps (blind SSRF)",
+    "description": "Verifier assessment: source-verified yes for code facts; realistic impact limited blind SSRF. Principal: tenant admin/owner with integrations.write (or plugin connection admin for api_url). (1) isset() with four arguments is true only if all four parts exist, so userinfo/query/fragment are not rejected (low impact). (2) gethostbyname resolves one IPv4 A record, the validated IP is not pinned, so curl/Guzzle re-resolves (rebinding; AAAA-preference with IPv6 egress). (3) FILTER_FLAG_NO_PRIV|NO_RES does not cover 100.64.0.0/10; IPv6-mapped behaviour is PHP-version dependent. Mitigations: https only (valid cert needed), redirects off, per-attempt revalidation, fixed signed body, response body never returned; deliveries endpoint exposes up to 280 chars of error/timing (port/reachability oracle).",
+    "claimed_root_cause": "Validate-then-connect without IP pinning, A-only check, incomplete deny ranges and a never-firing multi-argument isset().",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/app/Http/Controllers/Api/V1/IntegrationsController.php",
+        "line": 103,
+        "scope": "IntegrationsController.php:103",
+        "description": "createWebhook/updateWebhook/testWebhook pass the tenant URL to parse()."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Support/OutboundEndpoint.php",
+        "line": 20,
+        "scope": "OutboundEndpoint.php:20",
+        "description": "isset(user,pass,query,fragment) true only when all are present."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Support/OutboundEndpoint.php",
+        "line": 36,
+        "scope": "OutboundEndpoint.php:36",
+        "description": "publicHost: gethostbyname single IPv4, filter_var ranges; no AAAA, no pinning."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Services/WebhookService.php",
+        "line": 73,
+        "scope": "WebhookService.php:73",
+        "description": "Http::post($url) resolves again; error text stored (280 chars) and shown via deliveries endpoint. Same pattern in HttpTelephonyProvider.php:108 and nexio.uzum.delivery/Plugin.php:138."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "backend/app/Support/OutboundEndpoint.php",
+        "line": 38,
+        "description": "Validated IP discarded after the check."
+      },
+      {
+        "file": "backend/app/Services/WebhookService.php",
+        "line": 76,
+        "description": "Failure text truncated to 280 chars and persisted."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "Needs controlled DNS for rebinding, IPv6 egress, or an internal HTTPS service in unfiltered ranges reachable from the worker.",
+      "PHP version behaviour for IPv6 literals not executed."
+    ],
+    "validation_plan": {
+      "local": "Test: parse() accepts https://u:p@example.com/?a=1#f partially; publicHost on 100.64.0.1, 100.100.100.200, [::ffff:127.0.0.1], [fc00::1]; stubbed resolver returning a public then an internal address to show the second connect target.",
+      "deployment": "Owner confirms egress firewall denies RFC1918/link-local/100.64/10 from php-fpm and queue hosts and IPv6 egress status. Fix: resolve once, reject all A/AAAA non-public results, pin with CURLOPT_RESOLVE."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "backend/plugin-operations-invoke-missing-user-rbac",
+    "title": "Generic plugin operation endpoint lets any active tenant member run any operation of an enabled plugin (no per-user RBAC)",
+    "description": "Verifier assessment: source-verified yes. POST /plugins/{id}/operations/{operation} -> PluginRuntime::invoke checks auth, tenant, installed/enabled, entitlement, declared operation, connection and PermissionEngine (a platform-level grant keyed by plugin_id+permission, not the caller); no H::requirePermission. A read_only member can run delivery create/cancel, telephony place_call, ai.assistant ask (consumes quota), inventory operations; the alias telephonyPlaceCall own-number guard is bypassed via the generic route. CORRECTION: scoped API keys are NOT affected (plugins is not in KEY_RESOURCES, so keys get 403). Manage endpoints do require permissions, making this an inconsistency.",
+    "claimed_root_cause": "PluginRuntime authorizes the plugin and tenant but never maps the operation to a user-level Rbac permission.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/routes/api_v1.php",
+        "line": 370,
+        "scope": "api_v1.php:370",
+        "description": "Generic operation route, no permission middleware."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/PluginOperationsController.php",
+        "line": 25,
+        "scope": "PluginOperationsController.php:25",
+        "description": "No H::requirePermission; forwards body to PluginRuntime::invoke."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Plugins/PermissionEngine.php",
+        "line": 35,
+        "scope": "PermissionEngine.php:35",
+        "description": "Platform grant keyed only by plugin_id+permission."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Plugins/PluginRuntime.php",
+        "line": 305,
+        "scope": "PluginRuntime.php:305",
+        "description": "plugin->execute() runs the side effect for any member."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "backend/app/Support/Rbac.php",
+        "line": 37,
+        "description": "read_only holds only crm.read/finance.read/team.read."
+      },
+      {
+        "file": "backend/app/Http/Controllers/Api/V1/PluginOperationsController.php",
+        "line": 109,
+        "description": "Alias place_call guard (own number or team.write) bypassed by generic route."
+      },
+      {
+        "file": "backend/app/Http/Middleware/ApiContext.php",
+        "line": 121,
+        "description": "API keys rejected for plugins resource (refutes key part)."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "Installed/enabled/entitled plugins and platform grants are deployment state.",
+      "Plugin execute() bodies not exhaustively traced."
+    ],
+    "validation_plan": {
+      "local": "Seeded dummy tenant with nexio.delivery installed and granted; as read_only POST /plugins/nexio.delivery/operations/create expecting 403 (current 2xx); compare place_call with a foreign from via generic vs /telephony/calls alias; confirm nxk_ key gets 403.",
+      "deployment": "Owner repeats on a staging tenant with a read_only user and dummy input."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "billing:open-invoice-snapshot-credit-fx-not-revalidated-at-settlement",
+    "title": "Click/Payme plan-change invoice freezes proration credit and FX at creation, never expires, and can be paid later for a fresh period",
+    "description": "Verifier assessment: source-verified yes (logic); real-world exploitability partly provider-dependent. changePlan stores total = price - proration credit and a frozen CBU quote; due_at is never enforced and older open invoices are not voided; Click loads the invoice with no status/age check; Payme accepts open/overdue without age limit; InvoiceSettlement guards only duplicates; activateSubscription inserts a new subscription at the full plan amount with a calendar-aligned period. A billing.write user can hold a near-zero invoice and pay it at a later boundary (repeatable per cycle; bounded by the credit up to about one period price). Payment must still be made through the provider. Hardening also noted: Click sign omits error/merchant_prepare_id and never checks error; Click settlement has no row lock (duplicate activation, low impact).",
+    "claimed_root_cause": "Invoice price, credit and FX are snapshotted once and the callback paths treat the invoice as authoritative with no expiry or recomputation.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/app/Http/Controllers/Api/V1/BillingController.php",
+        "line": 148,
+        "scope": "BillingController.php:148",
+        "description": "changePlan with provider click/payme."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/BillingController.php",
+        "line": 170,
+        "scope": "BillingController.php:170",
+        "description": "Credit computed once from the current paid subscription; total = price + proration."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/ClickWebhookController.php",
+        "line": 28,
+        "scope": "ClickWebhookController.php:28",
+        "description": "Invoice loaded by id; no status/age check; amount compared to the frozen quote. Payme: PaymeWebhookController.php:56-63."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Services/InvoiceSettlement.php",
+        "line": 58,
+        "scope": "InvoiceSettlement.php:58",
+        "description": "activateSubscription cancels the active subscription and inserts a new one at full plan amount with next calendar boundary."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "backend/app/Http/Controllers/Api/V1/BillingController.php",
+        "line": 210,
+        "description": "due_at written but never enforced; no voiding of earlier open invoices."
+      },
+      {
+        "file": "backend/app/Support/BillingPeriod.php",
+        "line": 18,
+        "description": "nextBoundary returns the 1st of next month (or +12 months)."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "Real Click/Payme behaviour for tiny amounts and signed error callbacks cannot be verified source-only.",
+      "Whether the near-zero credit invoice is intended is a business policy question."
+    ],
+    "validation_plan": {
+      "local": "Test DB: active paid subscription (amount P), changePlan click -> invoice about 0; advance about 28 days; signed Click action=1 with the quote amount; assert paid and new subscription at P with a fresh boundary; repeat with two open invoices and with error=-9.",
+      "deployment": "Owner queries open subscription_plan invoices older than 1 day that were later paid and compares payments.amount with plan price."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "billing:sandbox-provider-default-activates-plan-without-payment",
+    "title": "Laravel billing activates a plan with no payment when PAYMENT_PROVIDER is unset or sandbox (fail-open default)",
+    "description": "Verifier assessment: source-verified yes. config/payments.php defaults provider to sandbox; resolveProvider rejects an explicit sandbox only when the default is not sandbox; changePlan (billing.write = tenant_owner) in the sandbox branch cancels subscriptions, inserts a new active subscription (no blocked_at, lifting enforceBillingLock), opens an invoice, sets the tenant active and applies entitlements with no payment; payInvoice sandbox marks invoices paid. No environment guard exists; no committed deploy file pins PAYMENT_PROVIDER (.env.example not opened). Applies only if the production value is unset/sandbox. The Worker fails closed.",
+    "claimed_root_cause": "Fail-open provider default and a sandbox branch that bypasses payment, safety depending only on one deployment variable.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/routes/api_v1.php",
+        "line": 251,
+        "scope": "api_v1.php:251",
+        "description": "POST /billing/plan (billing.write)."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/config/payments.php",
+        "line": 4,
+        "scope": "payments.php:4",
+        "description": "provider = env('PAYMENT_PROVIDER','sandbox')."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/BillingController.php",
+        "line": 462,
+        "scope": "BillingController.php:462",
+        "description": "resolveProvider returns sandbox when it is the default; rejection (467) only when default is not sandbox."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Http/Controllers/Api/V1/BillingController.php",
+        "line": 220,
+        "scope": "BillingController.php:220",
+        "description": "Sandbox transaction: new active subscription, open invoice, tenant active, applyEntitlements, no payment."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "backend/app/Http/Middleware/ApiContext.php",
+        "line": 81,
+        "description": "Lock reads blocked_at of the latest subscription; the new row has none."
+      },
+      {
+        "file": "api/routes/billing.ts",
+        "line": 164,
+        "description": "Worker contrast: refuses unless PAYMENT_PROVIDER === live."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "Production PAYMENT_PROVIDER value is unknown (.env not read)."
+    ],
+    "validation_plan": {
+      "local": "Dummy DB with PAYMENT_PROVIDER unset: tenant_owner POST /billing/plan {plan:enterprise}; expect new active subscription, entitlements, open invoice, no payment row; then pay the invoice in sandbox. Repeat with PAYMENT_PROVIDER=click (provider=sandbox -> 422).",
+      "deployment": "Owner confirms production PAYMENT_PROVIDER is click/payme (e.g. config:show payments.provider or GET /billing paymentProvider). Fix: fail closed."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "dashboard.byOwner-managers-deals-join-missing-tenant",
+    "title": "Dashboard/analytics per-owner aggregates join deals without a tenant predicate (both stacks)",
+    "description": "Verifier assessment: source-verified yes. DashboardController::summary byOwner and analytics managers (and Worker dashboard.ts ~80-89, ~213-222) join deals ON d.owner_id=u.id without d.tenant_id, so for a user with memberships in several tenants (possible via invite accept) other tenants deal counts and won values are added to this tenant dashboard. No permission check beyond auth. Leaked data are aggregate totals for users already in the viewer tenant. Sibling TeamController::listTeam scopes correctly.",
+    "claimed_root_cause": "LEFT JOIN deals on a cross-tenant user id without binding deals.tenant_id.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/app/Http/Controllers/Api/V1/DashboardController.php",
+        "line": 44,
+        "scope": "DashboardController.php:44",
+        "description": "summary(): only $ctx->auth()."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/AuthController.php",
+        "line": 543,
+        "scope": "AuthController.php:543",
+        "description": "Invite accept attaches existing users to additional tenants."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Http/Controllers/Api/V1/DashboardController.php",
+        "line": 95,
+        "scope": "DashboardController.php:95",
+        "description": "LEFT JOIN deals d ON d.owner_id=u.id has no tenant predicate; analytics managers at ~287; Worker api/routes/dashboard.ts:87,220."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "backend/app/Http/Controllers/Api/V1/TeamController.php",
+        "line": 25,
+        "description": "Sibling query uses d.tenant_id = m.tenant_id."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "Whether production has users with memberships in several tenants is a data fact."
+    ],
+    "validation_plan": {
+      "local": "Two dummy tenants and one shared user with won deals 100 (A) and 900 (B): as another member of A GET /dashboard and /analytics; expect 100 (current 1000). Repeat on Worker.",
+      "deployment": "Owner counts users with active memberships in more than one tenant."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "laravel-exportcsv-formula-injection-no-neutralisation",
+    "title": "Laravel CSV export (GET /export) lacks formula-prefix neutralisation; public lead-form contact_name reaches the file",
+    "description": "Verifier assessment: source-verified yes (missing guard and data flow); residual blocker is user-side spreadsheet behaviour. SalesController::exportCsv quotes cells with quote-doubling only; sibling ReportsController::csvCell and Worker deals.ts neutralise. Anonymous visitors of a public lead form (name, up to 160 chars, stored raw in leads.contact_name; email/phone only partly constrained) and any crm.write user can plant =,+,-,@ values that a user with export.data may open in a spreadsheet. Client-side only, needs victim interaction; low real-world severity.",
+    "claimed_root_cause": "The $esc closure in exportCsv does not prefix cells starting with = + - @ tab or CR, unlike the sibling exporters.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/app/Http/Controllers/Api/V1/LeadFormController.php",
+        "line": 148,
+        "scope": "LeadFormController.php:148",
+        "description": "Anonymous public form submit (5/min/IP)."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/LeadFormController.php",
+        "line": 178,
+        "scope": "LeadFormController.php:178",
+        "description": "contact_name inserted raw (trim + 160-char cut)."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/SalesController.php",
+        "line": 387,
+        "scope": "SalesController.php:387",
+        "description": "export.data holder requests /export?kind=leads."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Http/Controllers/Api/V1/SalesController.php",
+        "line": 403,
+        "scope": "SalesController.php:403",
+        "description": "Quote-doubling only; leading formula characters emitted unmodified in text/csv."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "backend/app/Http/Controllers/Api/V1/ReportsController.php",
+        "line": 124,
+        "description": "csvCell prefixes an apostrophe for ^[=+\\-@\\t\\r]."
+      },
+      {
+        "file": "backend/app/Support/H.php",
+        "line": 104,
+        "description": "H::str only trims and length-checks."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "Spreadsheet evaluation depends on client version and protected-view settings."
+    ],
+    "validation_plan": {
+      "local": "Dummy tenant: submit a public form with name =HYPERLINK(\"https://example.invalid/\",\"x\"); as export.data user GET /export?kind=leads; assert no cell starts with = after the quote (fails today). Cover deals/contacts/organizations too."
+    }
+  },
+  {
+    "verdict": "rejected",
+    "fingerprint": "laravel:backup-restore-reintroduces-revoked-sessions-keys-memberships",
+    "title": "Restoring a backup or the standby reintroduces sessions, API keys and memberships revoked after the snapshot",
+    "description": "Verifier assessment: code and doc facts verified (restore paths copy sessions/api_keys/memberships verbatim, config/replica.php excludes only migrations/cache tables, runbook has no flush/replay step), but triggering requires operator shell or database access, which already grants full database control.",
+    "claimed_root_cause": "Restore copies credential tables back verbatim and does not flush sessions or replay revocations.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "docs/OPERATIONS.md",
+        "line": 52,
+        "scope": "OPERATIONS.md:52",
+        "description": "Operator restore via gunzip | psql; no post-restore session flush documented."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Console/Commands/DbRestore.php",
+        "line": 29,
+        "scope": "DbRestore.php:29",
+        "description": "CLI-only command calls DbReplica::sync(replica, primary, all=true)."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Services/DbReplica.php",
+        "line": 117,
+        "scope": "DbReplica.php:117",
+        "description": "Each table including sessions and api_keys is made identical to the standby."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "backend/config/replica.php",
+        "line": 38,
+        "description": "Only migrations, cache and cache_locks excluded."
+      },
+      {
+        "file": "backend/app/Console/Commands/DbRestore.php",
+        "line": 29,
+        "description": "Artisan command with no HTTP exposure."
+      }
+    ],
+    "reason": "Rejected as a vulnerability: no lower-trust principal or boundary is crossed (operator access already implies full DB control) and credential state reverting on restore is inherent to backups. Recorded as a runbook note: truncate sessions and re-check api_keys.revoked_at after a restore."
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "laravel:backup-unencrypted-live-bearer-secrets-90d-retention",
+    "title": "Daily DB backups are unencrypted, hold live bearer session ids and reset tokens in plaintext, and are kept 90 days (docs say 14)",
+    "description": "Verifier assessment: source-verified yes for code and doc facts; mainly an operational/defence-in-depth gap. BackupService writes plain gzip dumps (dir 0750, files 0640) daily; BackupDatabase defaults --keep=90 while docs/OPERATIONS.md says 14 and advises copying off-server with no encryption guidance. Dumps contain sessions.id (raw bearer, used directly by ApiContext), invitations.token incl. password_reset, email_verify_token, password hashes and all CRM data. The underlying source-level root cause is that bearer credentials are stored unhashed (Worker hashes some). Exploitation needs read access to dumps or off-host copies.",
+    "claimed_root_cause": "Bearer credentials stored raw in the database and backups unencrypted with long retention amplify any DB or backup read.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/routes/console.php",
+        "line": 17,
+        "scope": "console.php:17",
+        "description": "nexio:backup scheduled daily 02:00, no --keep."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/AuthController.php",
+        "line": 52,
+        "scope": "AuthController.php:52",
+        "description": "createSession stores the raw token as sessions.id; reset/verify tokens also raw (157, 473-475)."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Services/BackupService.php",
+        "line": 56,
+        "scope": "BackupService.php:56",
+        "description": "Dump streamed into plain gzip, chmod 0640, newest 90 kept (65-69)."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "backend/app/Http/Middleware/ApiContext.php",
+        "line": 146,
+        "description": "Session lookup WHERE s.id = ? against the raw value."
+      },
+      {
+        "file": "docs/OPERATIONS.md",
+        "line": 51,
+        "description": "Docs say keeps 14 and advise rsync/S3 without encryption."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "Actual file ownership/ACL, off-host destination and effective --keep are deployment facts."
+    ],
+    "validation_plan": {
+      "local": "Throwaway DB: create a session, run nexio:backup, gunzip and grep for the sessions.id value; send it as the cookie to an authenticated endpoint; confirm schedule passes no --keep.",
+      "deployment": "Owner checks storage/app/backups permissions, off-host copy ACL/encryption, effective retention and SESSION_TTL."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "nexio.ai-complete.quota-bypass-and-unmetered-spend",
+    "title": "AI /ai/complete: zero-AI plans unmetered, quota checked after the paid call, client-chosen model; Worker variant has no quota",
+    "description": "Verifier assessment: source-verified yes (logic). Laravel AiController::complete needs ai.read and an active/trialing subscription, calls Groq with the platform key before the quota block; the check is skipped when ai_minutes=0 (starter plan is seeded with 0 and new tenants get a trialing starter subscription), while AiQuota::deny treats limit<=0 as no AI; the crossing call still spends tokens; body.model is passed verbatim. No throttle on the route. Worker api/routes/ai.ts complete() has no subscription, quota or usage record. Impact: uncapped platform AI cost; no data exposure.",
+    "claimed_root_cause": "Entitlement/quota enforced after the side effect and a zero limit treated as unlimited; model not allow-listed; Worker omits metering.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/routes/api_v1.php",
+        "line": 291,
+        "scope": "api_v1.php:291",
+        "description": "POST /ai/complete (ai.read)."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/AiController.php",
+        "line": 29,
+        "scope": "AiController.php:29",
+        "description": "GroqAi->complete(prompt, body[model]) before any quota logic."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/AiController.php",
+        "line": 35,
+        "scope": "AiController.php:35",
+        "description": "$limit > 0 && ... skipped for ai_minutes=0; post-call for positive limits."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Services/GroqAi.php",
+        "line": 47,
+        "scope": "GroqAi.php:47",
+        "description": "Platform key bills the caller-chosen model. Worker: api/routes/ai.ts:190-221."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "backend/database/migrations/2026_11_10_000400_pricing_page_plans.php",
+        "line": 29,
+        "description": "starter seeded with ai_minutes => 0."
+      },
+      {
+        "file": "backend/app/Services/AiQuota.php",
+        "line": 37,
+        "description": "deny(): limit<=0 means no AI (contradiction)."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "Which backend serves production and live plan data are unknown.",
+      "A global throttle was not exhaustively excluded."
+    ],
+    "validation_plan": {
+      "local": "Laravel test with Http::fake: starter tenant (ai_minutes=0, trialing) POST /ai/complete repeatedly with a custom model; assert 200, upstream request carries the model, no 402. Then ai_minutes=1 near limit: crossing call returns 402 yet upstream was called.",
+      "deployment": "Owner checks plans.ai_minutes, usage_records and Groq usage dashboards, and which backend serves the route."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "nexio.laravel-ai-read-endpoints.missing-ai-read-permission",
+    "title": "Laravel AI read endpoints omit the ai.read permission check that the Worker twin and sibling controller enforce",
+    "description": "Verifier assessment: source-verified yes; intra-tenant over-disclosure only. AiController listAgents/getAgent/listCalls/getCall/approvals/suppression/analytics call only $ctx->auth(); roles without ai.read (support_agent, finance_manager, employee, read_only, project_manager, developer) get agent persona/script/policy, call phones/summaries/costs/tool-call args, suppression-list phones/emails and analytics. Worker aiCalls.ts and AiExtrasController require ai.read, so this is an inconsistent omission. Transcripts are partly gated by a hard-coded role list. Every query is tenant-scoped.",
+    "claimed_root_cause": "Read handlers never received H::requirePermission(ai.read).",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/routes/api_v1.php",
+        "line": 266,
+        "scope": "api_v1.php:266",
+        "description": "GET /ai/agents, /ai/calls, /ai/approvals, /ai/suppression, /ai/analytics."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/AiController.php",
+        "line": 124,
+        "scope": "AiController.php:124",
+        "description": "Only $ctx->auth() (also 155, 343, 381, 613, 645, 674)."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Http/Controllers/Api/V1/AiController.php",
+        "line": 128,
+        "scope": "AiController.php:128",
+        "description": "Tenant-scoped AI data returned to roles lacking ai.read."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "backend/app/Http/Controllers/Api/V1/AiExtrasController.php",
+        "line": 113,
+        "description": "Sibling reads require ai.read."
+      },
+      {
+        "file": "api/routes/aiCalls.ts",
+        "line": 9,
+        "description": "Worker twin requires ai.read."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "Which backend serves production is unknown."
+    ],
+    "validation_plan": {
+      "local": "Dummy tenant with a read_only user: GET /ai/agents, /ai/calls, /ai/approvals, /ai/suppression, /ai/analytics; expect 403 like the Worker (current 200); confirm no tenant-B rows.",
+      "deployment": "Owner tests a non-privileged account in their own tenant against GET /ai/calls."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "platform.tenant-suspension-not-enforced-on-access",
+    "title": "Operator suspend/cancel of a tenant is not enforced on re-login, session or API-key access (both stacks)",
+    "description": "Verifier assessment: source-verified yes. setTenantStatus writes tenants.status and expires only existing sessions. A repo-wide grep found no request-path reader of tenants.status: login, ApiContext::loadSession/loadApiKey and Worker loadSession use memberships/keys only; the only lock (enforceBillingLock) keys on subscriptions.blocked_at, which the operator action never sets (only CardBillingService and RenewSubscriptions set it). Owner-initiated immediate cancel also leaves access intact. This is a failing operator control rather than an external attack path.",
+    "claimed_root_cause": "tenants.status is informational only; no server-side gate reads it and the operator action does not feed the one enforced lock.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/app/Http/Controllers/Api/V1/AuthController.php",
+        "line": 196,
+        "scope": "AuthController.php:196",
+        "description": "Login picks the first active membership without checking tenants.status."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/PlatformController.php",
+        "line": 160,
+        "scope": "PlatformController.php:160",
+        "description": "setTenantStatus updates status and expires current sessions only (~170)."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Middleware/ApiContext.php",
+        "line": 81,
+        "scope": "ApiContext.php:81",
+        "description": "enforceBillingLock reads only subscriptions.blocked_at."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Http/Middleware/ApiContext.php",
+        "line": 105,
+        "scope": "ApiContext.php:105",
+        "description": "loadApiKey authenticates by api_keys + creator membership; tenant status never read."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "backend/app/Http/Controllers/Api/V1/PlatformController.php",
+        "line": 169,
+        "description": "Suspension only expires existing sessions."
+      },
+      {
+        "file": "backend/app/Services/CardBillingService.php",
+        "line": 155,
+        "description": "blocked_at is set only by the dunning job."
+      },
+      {
+        "file": "api/routes/platform.ts",
+        "line": 147,
+        "description": "Worker mirror has the same gap."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "Enforcement outside reviewed source (WAF, deployed Worker differing from api/*.ts) cannot be excluded."
+    ],
+    "validation_plan": {
+      "local": "Dummy DB: suspend tenant as platform admin; then log in as a member and GET /contacts, and call with an nxk_ key; expect 402/403 (current 200). Repeat for immediate cancel and on the Worker D1 fixture.",
+      "deployment": "Owner suspends a throwaway tenant on staging and tries a fresh login and an existing API key."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "plugin-usage-amount-client-controlled",
+    "title": "Plugin quota reservation amount comes from the client body, so plan caps can be bypassed with amount=0",
+    "description": "Verifier assessment: source-verified yes. PluginRuntime::invoke reserves quota with (float)($input[amount] ?? 1); only nexio.ai.assistant:ask overwrites it server-side. UsageMeter::reserve rejects only negative amounts, so amount=0 passes the BLOCK check without advancing the counter (an already-over-limit tenant is still denied). Caps for delivery_orders, delivery_quotes, outgoing_calls and inventory_movements can be bypassed by any member who can invoke the operation. Billing/quota integrity loss, not cross-tenant.",
+    "claimed_root_cause": "The metering unit is derived from untrusted request input instead of a server-defined per-operation cost.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/routes/api_v1.php",
+        "line": 370,
+        "scope": "api_v1.php:370",
+        "description": "Generic plugin operation route."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/PluginOperationsController.php",
+        "line": 42,
+        "scope": "PluginOperationsController.php:42",
+        "description": "Only ai.assistant:ask gets amount overwritten."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Plugins/PluginRuntime.php",
+        "line": 289,
+        "scope": "PluginRuntime.php:289",
+        "description": "UsageMeter::reserve(..., (float)($input[amount] ?? 1))."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Plugins/UsageMeter.php",
+        "line": 364,
+        "scope": "UsageMeter.php:364",
+        "description": "BLOCK branch: used+0 <= limit succeeds and the counter does not advance; reserve() validates only amount<0 (~275)."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "backend/plugins/nexio.delivery/Plugin.php",
+        "line": 49,
+        "description": "create declares only the metric name, no cost."
+      },
+      {
+        "file": "backend/database/seeders/PluginSeeder.php",
+        "line": 251,
+        "description": "Seeded BLOCK caps that amount=0 sidesteps."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "End-to-end amount=0 pass-through not observed; no upstream body rewriting found."
+    ],
+    "validation_plan": {
+      "local": "Starter tenant with delivery_quotes limit 20/day BLOCK: POST operations/quote 25 times with {\"amount\":0}; assert all succeed and used stays 0; contrast without amount (21st denied); also 0.001.",
+      "deployment": "Owner compares plugin_usage_counters.used with ledger rows on staging."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "ratelimit-key-shared-proxy-ip",
+    "title": "Auth and public-form rate limits are keyed on $request->ip() with no trusted-proxy configuration",
+    "description": "Verifier assessment: source-verified partly (keying and absence of proxy config are source-verified; effective client IP depends on framework defaults and deployment). ApiContext limits login/register/forgot-password to 20/min per ip() with non-atomic Cache get/put; LeadFormController limits 5/min per form+ip; bootstrap/app.php has no trustProxies and no repo guidance exists. In the shipped docker topology (spa-nginx proxying /api/) the peer is the proxy, so buckets would be global (one client can lock out all logins or block a form); trusting * would make X-Forwarded-For spoofable. vendor/ absent, so framework defaults are knowledge, not source.",
+    "claimed_root_cause": "Rate-limit identity derives from $request->ip() while the app configures no trusted proxies and ships a reverse-proxy topology; limiter is non-atomic.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "docker/spa-nginx.conf",
+        "line": 7,
+        "scope": "spa-nginx.conf:7",
+        "description": "Anonymous requests reach the API only via nginx proxying /api/ to api:80."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/bootstrap/app.php",
+        "line": 13,
+        "scope": "app.php:13",
+        "description": "No trustProxies configuration anywhere in source."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Http/Middleware/ApiContext.php",
+        "line": 39,
+        "scope": "ApiContext.php:39",
+        "description": "Key rl:auth:<ip>, limit 20, non-atomic get/put; lead form bucket at LeadFormController.php:155."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "docker-compose.yml",
+        "line": 44,
+        "description": "SPA nginx published on 8080:80, front door to the api container."
+      },
+      {
+        "file": "docs/OPERATIONS.md",
+        "line": 67,
+        "description": "Docker topology documented without trusted-proxy guidance."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "Laravel default proxy trust and ip() resolution cannot be confirmed without vendor/ or execution.",
+      "Production proxy chain and TRUSTED_PROXIES are deployment facts."
+    ],
+    "validation_plan": {
+      "local": "docker compose test: 21 login POSTs with distinct X-Forwarded-For values; expect 429 on the 21st if keyed to the proxy IP, and also for another client; with trust=* confirm rotating XFF resets the limit.",
+      "deployment": "Owner confirms trusted-proxy setting, that logs show real client IPs, and that the proxy overwrites X-Forwarded-For."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "spa.stored-javascript-url-in-organization-website-href",
+    "title": "Stored javascript: URL in organization website rendered as an href on the company detail page",
+    "description": "Verifier assessment: source-verified yes for storage and render; exploitability depends on a browser runtime fact. A crm.write user can store a javascript: value (H::str only length-checks, 200 chars); CompanyDetail.tsx renders <a href={d.website} target=\"_blank\" rel=\"noreferrer noopener\"> with no scheme guard; React 18.3 only warns; no CSP in nginx/index.html. Chromium/Firefox likely run javascript: from target=_blank in about:blank with an opaque origin (neutralising it); Safari and Capacitor WebView may differ. Session cookie is HttpOnly. Only this one stored-string href sink was found in src/.",
+    "claimed_root_cause": "No http/https allow-list when storing or rendering organizations.website, and no CSP as defence in depth.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/app/Http/Controllers/Api/V1/CrmController.php",
+        "line": 87,
+        "scope": "CrmController.php:87",
+        "description": "create/updateOrganization (crm.write) accept arbitrary website strings."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Support/H.php",
+        "line": 104,
+        "scope": "H.php:104",
+        "description": "H::str trims and length-checks only."
+      },
+      {
+        "kind": "sink",
+        "file": "src/pages/app/CompanyDetail.tsx",
+        "line": 66,
+        "scope": "CompanyDetail.tsx:66",
+        "description": "href={d.website} rendered unsanitised."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "docker/spa-nginx.conf",
+        "line": 13,
+        "description": "Only nosniff/X-Frame-Options/Referrer-Policy; no CSP."
+      },
+      {
+        "file": "backend/app/Http/Controllers/Api/V1/AuthController.php",
+        "line": 32,
+        "description": "Session cookie HttpOnly (script cannot read it)."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "Browser behaviour for javascript: on target=_blank + noopener (incl. Safari and Capacitor WebView) was not executed."
+    ],
+    "validation_plan": {
+      "local": "Dummy data: as sales_agent PATCH an organization website to a javascript: payload that shows location.origin; as tenant_admin click the link in Chromium, Firefox, Safari and the Capacitor WebView and record the origin; add a 422 test for non-http(s) websites.",
+      "deployment": "Owner checks response headers for CSP and queries organizations.website for non-http(s) schemes."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "team.updateMember.admin-self-promote-owner",
+    "title": "tenant_admin can promote self or others to tenant_owner via PATCH /team/members/{id} (both stacks)",
+    "description": "Verifier assessment: source-verified yes. invite() blocks assigning tenant_owner unless the caller is owner, but updateMember requires only roles.write (held by tenant_admin), accepts any role in Rbac::ROLES for any membership incl. the caller, and its last-owner guard covers only demotion (not status=suspended). tenant_owner adds billing.write, finance.write, ai.recordings. removeMember (team.write) can remove an owner while owners>1. invite() also lets tenant_admin invite finance_manager (billing.write). Worker identical.",
+    "claimed_root_cause": "Owner-only assignment rule exists only in invite(); updateMember/removeMember check only generic permissions.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/routes/api_v1.php",
+        "line": 235,
+        "scope": "api_v1.php:235",
+        "description": "PATCH /team/members/{id} -> TeamController::updateMember, no role middleware."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Http/Controllers/Api/V1/TeamController.php",
+        "line": 135,
+        "scope": "TeamController.php:135",
+        "description": "Role validated only against Rbac::ROLES (includes tenant_owner); no caller-role or self-target check; last-owner guard ~132."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Http/Controllers/Api/V1/TeamController.php",
+        "line": 143,
+        "scope": "TeamController.php:143",
+        "description": "UPDATE tenant_memberships SET role/status for the target membership; next request resolves owner permissions. Worker: api/routes/team.ts ~108."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "backend/app/Http/Controllers/Api/V1/TeamController.php",
+        "line": 81,
+        "description": "invite() owner-only guard showing intended policy."
+      },
+      {
+        "file": "backend/app/Support/Rbac.php",
+        "line": 27,
+        "description": "tenant_admin has roles.write/team.write but not billing.write/finance.write/ai.recordings."
+      },
+      {
+        "file": "api/routes/team.ts",
+        "line": 89,
+        "description": "Worker updateMember has the same missing guard."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "A DB trigger or middleware outside the reviewed files is not ruled out (none found).",
+      "Whether product intends tenant_admin to grant owner (invite() guard suggests not)."
+    ],
+    "validation_plan": {
+      "local": "Dummy tenant with owner and tenant_admin: as admin PATCH own membership {role:tenant_owner}; expect 403 (current behaviour 200); then call a billing.write endpoint. Also PATCH {status:suspended} on the sole owner and invite finance_manager. Repeat on Worker D1 fixture.",
+      "deployment": "Owner confirms no DB trigger on tenant_memberships.role and reviews audit_log for role changes made by tenant_admins to tenant_owner."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "webhook-delivery-inline-worker-pinning-and-global-retry-hol",
+    "title": "Outbound webhook delivery runs in the web process and in one global sequential retry loop, so a tenant slow endpoints can degrade others",
+    "description": "Verifier assessment: source-verified partly. dispatch() runs each of up to 20 matching endpoints via dispatch(fn)->afterResponse() in the same PHP process (5s timeout + 3s connect, unbounded gethostbyname); no throttle on event-producing routes; retryDue takes the oldest 100 due rows across all tenants and delivers sequentially under withoutOverlapping every minute, so one tenant slow rows delay everyone retries; webhook_deliveries is never pruned. The retry head-of-line block is a pure source property; worker-pool exhaustion depends on SAPI and pool size. Availability only.",
+    "claimed_root_cause": "Untrusted-endpoint HTTP work runs synchronously in shared request and scheduler workers without per-tenant concurrency/time budget or fairness.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "backend/app/Http/Controllers/Api/V1/SalesController.php",
+        "line": 111,
+        "scope": "SalesController.php:111",
+        "description": "Lead create (and anonymous form LeadFormController.php:193) call WebhookService::dispatch with no throttle."
+      },
+      {
+        "kind": "propagation",
+        "file": "backend/app/Services/WebhookService.php",
+        "line": 41,
+        "scope": "WebhookService.php:41",
+        "description": "Deliveries run inline via afterResponse for each endpoint."
+      },
+      {
+        "kind": "sink",
+        "file": "backend/app/Services/WebhookService.php",
+        "line": 110,
+        "scope": "WebhookService.php:110",
+        "description": "retryDue delivers the oldest 100 rows globally, sequentially; routes/console.php:12 uses withoutOverlapping."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "backend/app/Http/Controllers/Api/V1/IntegrationsController.php",
+        "line": 104,
+        "description": "20 endpoints per tenant is the only bound."
+      },
+      {
+        "file": "backend/app/Support/OutboundEndpoint.php",
+        "line": 38,
+        "description": "Blocking gethostbyname with no timeout."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "Whether afterResponse pins a php-fpm worker depends on SAPI (fpm vs Octane) and pool size.",
+      "Scheduler cadence is a deployment fact."
+    ],
+    "validation_plan": {
+      "local": "Two tenants: A with 20 endpoints at a local tarpit and 100 due rows, B with one fast endpoint; run nexio:webhooks:retry once and measure whether B retry is delayed; measure other-request latency under repeated POST /leads with a small fpm pool.",
+      "deployment": "Owner reviews SAPI, pm.max_children, queue workers and scheduler run durations of nexio:webhooks:retry."
+    }
+  },
+  {
+    "verdict": "rejected",
+    "fingerprint": "worker.notifyUser.cross-tenant-recipient",
+    "title": "Worker taskRoutes.create notifies an arbitrary user_id without tenant-membership check",
+    "description": "Verifier assessment: the missing check is real in the Worker (assignee_id passed to notifyUser, which inserts a notification and may send the title to Telegram), but the exploit needs a foreign user id (64-bit random) and no endpoint leaks such ids; Laravel validates the assignee via H::memberRef. Impact would be a spam notification, no disclosure.",
+    "claimed_root_cause": "notifyUser/taskRoutes.create trust a client-supplied assignee_id without verifying membership in the caller tenant (Worker only).",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "api/routes/ops.ts",
+        "line": 287,
+        "scope": "ops.ts:287",
+        "description": "tasks.write user posts a task with an arbitrary assignee_id."
+      },
+      {
+        "kind": "propagation",
+        "file": "api/routes/ops.ts",
+        "line": 293,
+        "scope": "ops.ts:293",
+        "description": "assignee_id inserted and passed to notifyUser with no membership validation."
+      },
+      {
+        "kind": "sink",
+        "file": "api/core.ts",
+        "line": 236,
+        "scope": "core.ts:236",
+        "description": "Notification row for any user_id and Telegram send of the title."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "backend/app/Http/Controllers/Api/V1/OpsController.php",
+        "line": 415,
+        "description": "Laravel validates the assignee with H::memberRef."
+      },
+      {
+        "file": "api/core.ts",
+        "line": 117,
+        "description": "User ids are prefix + 8 random bytes (not guessable)."
+      },
+      {
+        "file": "api/routes/team.ts",
+        "line": 22,
+        "description": "Team list is tenant-scoped; no foreign id leak."
+      }
+    ],
+    "reason": "Rejected: attacker needs a user id from another tenant; ids are 64-bit random and all listing endpoints found are tenant-scoped; Laravel validates the assignee; even if reached the result is a spam notification with no data disclosure. Kept as hardening (add membership check in the Worker)."
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "worker.tenant-scope.unvalidated-foreign-ids-unscoped-child-queries",
+    "title": "Worker API stores unvalidated foreign-entity ids and later resolves them without tenant scope",
+    "description": "Verifier assessment: source-verified yes for missing validation and unscoped joins; exploit prerequisite (a foreign tenant 64-bit random id) is outside source and no id-leaking endpoint was found. Worker (documented legacy) create handlers persist org_id/contact_id/deal_id/project_id/assignee_id without owned() checks; orders.get, getDeal/listDeals, listContacts, projects.get join/select by id only, disclosing a foreign org name/email or deal title/status if an id is known. Parts refuted: ai createCampaign agent_id (startCampaign re-checks) and getOrganization reverse direction. Laravel H::tenantRef/memberRef covers this.",
+    "claimed_root_cause": "Worker handlers do not verify body-supplied foreign ids belong to the tenant and read handlers join by id without tenant predicates; owned() exists but is used only in some routes.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "api/routes/ops.ts",
+        "line": 63,
+        "scope": "ops.ts:63",
+        "description": "orders.create (orders.write) accepts org_id/contact_id/deal_id."
+      },
+      {
+        "kind": "propagation",
+        "file": "api/routes/ops.ts",
+        "line": 73,
+        "scope": "ops.ts:73",
+        "description": "Ids bound directly into INSERT with no owned() check."
+      },
+      {
+        "kind": "sink",
+        "file": "api/routes/ops.ts",
+        "line": 51,
+        "scope": "ops.ts:51",
+        "description": "orders.get LEFT JOINs organizations without tenant clause and selects deals by id only (~58)."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "api/core.ts",
+        "line": 117,
+        "description": "Ids are prefix + 64 random bits, not enumerable."
+      },
+      {
+        "file": "api/routes/ops2.ts",
+        "line": 112,
+        "description": "Intended owned() pattern used in communications.send."
+      },
+      {
+        "file": "backend/app/Support/H.php",
+        "line": 147,
+        "description": "Laravel tenantRef/memberRef enforce this centrally."
+      }
+    ],
+    "blockers": [
+      "Local execution not performed: no PHP runtime and no OS sandbox in this run (source-only).",
+      "A foreign tenant row id is required; no leaking endpoint found in reviewed files.",
+      "Worker is documented legacy; deployment unknown."
+    ],
+    "validation_plan": {
+      "local": "Local D1/miniflare with tenants A,B: create an org in B; as an A user POST /orders {org_id:B_org}, then GET /orders/:id and check for B org name/email; repeat for deal_id and deals.createDeal.",
+      "deployment": "Owner confirms whether the Worker serves traffic and whether any response/log exposes cross-tenant ids."
+    }
+  }
+]

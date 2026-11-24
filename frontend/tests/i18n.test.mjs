@@ -38,15 +38,15 @@ test('every static t("key") used in code exists', () => {
 
 test('every dynamic t(`prefix.${x}`) has entries for known values', () => {
   const expect = {
-    'account.': ['wallet', 'orders', 'complaint'],
-    'admin.tab.': ['sellers', 'commission', 'settings', 'complaints', 'audit', 'orders', 'payouts', 'roles'],
+    'account.': ['wallet', 'orders', 'complaint', 'reviews'],
+    'admin.tab.': ['sellers', 'commission', 'settings', 'complaints', 'audit', 'orders', 'payouts', 'roles', 'analytics', 'quality', 'flags', 'reviews', 'content', 'reports', 'accounting', 'model'],
     'fault.': ['client', 'seller', 'bmg'], 'files.': ['document', 'photo'],
     'home.step': ['1.t', '1.d', '2.t', '2.d', '3.t', '3.d'],
     'import.err.': ['name_required', 'price_invalid', 'stock_required', 'category_required'],
     'import.field.': ['name', 'price', 'stock', 'category', 'unit', 'cost_price'],
     'ledger.': ['topup', 'order_payment', 'refund'], 'order.mode_': ['full', 'cash'],
     'seller.tab.': ['import', 'offers', 'delivery', 'files', 'orders', 'analytics', 'profile'],
-    'setting.': ['prepayment_percent', 'prepayment_min_order_sum', 'prepayment_cash_percent', 'seller_identity_check', 'default_commission_percent', 'large_object_area'],
+    'setting.': ['prepayment_percent', 'prepayment_min_order_sum', 'prepayment_cash_percent', 'seller_identity_check', 'default_commission_percent', 'large_object_area', 'bypass_check_days', 'support_phone', 'support_telegram', 'support_email', 'tax_accounting_enabled', 'vat_rate'],
     'status.': ['pending_payment', 'paid', 'completed', 'cancelled'], 'type.': ['apartment', 'house', 'complex'],
     'zone.': ['walls', 'floor', 'ceiling', 'roof'],
   };

@@ -1,0 +1,51 @@
+{
+  "h01-auth": [
+    "backend%2Froutes%2Fapi_v1.php%23auth-session-recovery-invite-routes::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1%2FAuthController.php%23resetPassword-acceptInvite-login::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1::ATTACK-CLASSES.md%23Access%20control"
+  ],
+  "h02-rbac-laravel": [
+    "backend%2Froutes%2Fapi_v1.php%23tenant-and-platform-routes::backend%2Fapp%2FSupport%2FH.php%23requirePermission-requirePlatform::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1::ATTACK-CLASSES.md%23Access%20control"
+  ],
+  "h03-tenant-worker": [
+    "api%2Fworker.ts%23Worker-%2Fapi%2Fv1-routes::api%2Fcore.ts%23requireAuth-requirePermission-tenant-scoping::api::ATTACK-CLASSES.md%23Access%20control"
+  ],
+  "h04-billing": [
+    "backend%2Froutes%2Fapi.php%23%2Fwebhooks%2Fclick-%2Fwebhooks%2Fpayme-billing-routes::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1%2FBillingController.php%23changePlan-payInvoice-resolveProvider::backend%2Fapp%2FHttp%2FControllers::ATTACK-CLASSES.md%23Business%20logic"
+  ],
+  "h05-webhooks-inbound": [
+    "backend%2Froutes%2Fapi.php%23%2Fwebhooks%2Fai-voice-%2Fwebhooks%2Ftelegram-%2Foauth%2Ftoken-%2Fpublic%2Fforms::backend%2Fapp%2FHttp%2FControllers%2FAiVoiceWebhookController.php%23signature-and-tenant-binding::backend%2Fapp%2FHttp%2FControllers::ATTACK-CLASSES.md%23Access%20control"
+  ],
+  "h06-ssrf": [
+    "backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1%2FIntegrationsController.php%23webhook-endpoints-and-testWebhook::backend%2Fapp%2FSupport%2FOutboundEndpoint.php%23parse::backend%2Fapp%2FServices::ATTACK-CLASSES.md%23Injection"
+  ],
+  "h07-plugins": [
+    "backend%2Froutes%2Fapi_v1.php%23plugins-marketplace-developer-routes::backend%2Fapp%2FPlugins%2FPluginRuntime.php%23invoke::backend%2Fapp%2FPlugins::ATTACK-CLASSES.md%23Resource%20and%20file%20handling"
+  ],
+  "h08-ai": [
+    "backend%2Froutes%2Fapi_v1.php%23ai-routes-and-telegram-assistant::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1%2FAiController.php%23complete-finalizeCall-decideApproval::backend%2Fapp%2FServices::ATTACK-CLASSES.md%23Feature%20abuse%20and%20data%20leakage"
+  ],
+  "h09-files-export": [
+    "backend%2Froutes%2Fapi_v1.php%23attachments-export-reports::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1%2FCrmExtrasController.php%23upload-download-attachments::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1::ATTACK-CLASSES.md%23Resource%20and%20file%20handling"
+  ],
+  "h10-sql-injection": [
+    "backend%2Fapp%2FHttp%2FControllers%23raw-queries-orderBy-whereRaw-DB-raw::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1%23query-construction::backend%2Fapp::ATTACK-CLASSES.md%23Injection"
+  ],
+  "h11-crypto": [
+    "backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1%2FAuthController.php%23tokens-hashes-secrets::backend%2Fapp%2FSupport%2FH.php%23password-hashing-and-token-generation::backend%2Fapp::ATTACK-CLASSES.md%23Cryptography%20and%20secrets"
+  ],
+  "h12-client": [
+    "src%2Flib%2Fapi.ts%23SPA-api-client-and-native-session::src%2Flib%2Fnative.ts%23SecureStorage-session-and-openExternal::src::ATTACK-CLASSES.md%23Access%20control"
+  ],
+  "h13-supply-deploy": [
+    ".github%2Fworkflows%2Fci.yml%23CI-and-deploy-scripts::deploy.sh%23remote-deploy-and-git-credentials::.::ATTACK-CLASSES.md%23Chained%20vulnerabilities%20and%20trust%20boundaries"
+  ],
+  "h14-availability": [
+    "backend%2Fapp%2FHttp%2FMiddleware%2FApiContext.php%23rate-limits-and-quotas::backend%2Fapp%2FPlugins%2FUsageMeter.php%23quota-reservation::backend%2Fapp::ATTACK-CLASSES.md%23Business%20logic"
+  ],
+  "h15-lifecycle": [
+    "backend%2Fapp%2FConsole%2FCommands%23backup-restore-failover-purge::backend%2Fapp%2FServices%2FBackupService.php%23backup-confidentiality-and-restore::backend%2Fapp::ATTACK-CLASSES.md%23Business%20logic"
+  ],
+  "h16-wildcard": [
+    "repo%23wildcard-cross-cutting-review::repo%23unexpected-boundaries-and-chains::backend%2Fapp::ATTACK-CLASSES.md%23Wildcard",
+    "repo%23obvious-things-sweep::repo%23debug-endpoints-default-creds-error-leaks::repo::ATTACK-CLASSES.md%23Obvious%20things"
+  ]
+}

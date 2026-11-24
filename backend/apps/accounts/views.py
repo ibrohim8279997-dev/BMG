@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 from apps.audit.models import log as audit
 from apps.core.utils import client_ip, throttle
 
-from . import telegram
+from . import google, telegram
 from .models import TelegramLink, User
 from .phone import normalize_phone
 from .services import LoginError, issue_code, peek_valid_code, verify_code
@@ -104,6 +104,59 @@ class VerifyView(APIView):
             if link:
                 user.telegram_id = link.telegram_id
                 user.save(update_fields=['telegram_id'])
+            if role == 'seller':
+                from apps.sellers.models import Seller
+                Seller.objects.create(user=user, company_name=str(request.data.get('company_name', ''))[:200])
+        if user.is_staff:
+            return Response({'error': 'use_admin_login'}, status=403)
+        if not user.is_active:
+            return Response({'error': 'inactive'}, status=403)
+        request.session.cycle_key()
+        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+        return Response(user_payload(user))
+
+
+class ProvidersView(APIView):
+    """Which sign-in methods are on. The Google button is shown only when a client id is configured."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        return Response({'google_client_id': settings.GOOGLE_CLIENT_ID})
+
+
+class GoogleLoginView(APIView):
+    """Sign in (or register) with a Google ID token. Accounts are matched ONLY by Google's stable id,
+    never by e-mail, so a Google account can't take over a phone/Telegram account. Staff must use /admin."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [throttle('login_verify')]
+
+    @method_decorator(csrf_protect)
+    @transaction.atomic
+    def post(self, request):
+        info = google.verify_id_token(str(request.data.get('credential', '')))
+        if info is None:
+            return Response({'error': 'invalid_code'}, status=400)
+        user = User.objects.filter(google_sub=info['sub']).first()
+        if user is None:
+            role = request.data.get('role')
+            if role not in ('client', 'seller'):
+                return Response({'error': 'registration_required'}, status=422)
+            if not (request.data.get('accept_privacy') is True and request.data.get('accept_terms') is True):
+                return Response({'error': 'consent_required'}, status=422)
+            ip = client_ip(request)
+            since = timezone.now() - timedelta(days=1)
+            if User.objects.filter(registration_ip=ip, date_joined__gte=since).count() \
+                    >= settings.MAX_NEW_ACCOUNTS_PER_IP_PER_DAY:
+                return Response({'error': 'too_many_registrations'}, status=429)
+            now = timezone.now()
+            user = User.objects.create(
+                username=f'g{info["sub"]}', google_sub=info['sub'], email=info['email'], role=role, registration_ip=ip,
+                language=request.data.get('language') if request.data.get('language') in ('uz', 'ru', 'en') else 'ru',
+                accepted_privacy_at=now, accepted_terms_at=now)
+            user.set_unusable_password()
+            user.save(update_fields=['password'])
             if role == 'seller':
                 from apps.sellers.models import Seller
                 Seller.objects.create(user=user, company_name=str(request.data.get('company_name', ''))[:200])

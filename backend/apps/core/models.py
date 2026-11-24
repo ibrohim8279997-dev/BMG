@@ -14,6 +14,12 @@ class Setting(models.Model):
         'seller_identity_check': False,     # off by default
         'default_commission_percent': 10,
         'large_object_area': 1000,          # m2: individual terms for big objects
+        'bypass_check_days': 3,             # phone revealed + order still open after N days -> flagged
+        'tax_accounting_enabled': False,    # the Uzbekistan tax package is a switch: off until the accountant signs off
+        'vat_rate': 12,                     # VAT %, applied to BMG's commission (treated as VAT-inclusive)
+        'support_phone': '',                # BMG complaint contacts shown on seller profiles and footer
+        'support_telegram': '',
+        'support_email': '',
     }
 
     @classmethod

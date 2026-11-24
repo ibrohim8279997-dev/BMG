@@ -1,0 +1,2122 @@
+[
+  {
+    "coverage_id": ".github%2Fworkflows%2Fci.yml%23CI-and-deploy-scripts::deploy.sh%23remote-deploy-and-git-credentials::.::ATTACK-CLASSES.md%23Chained%20vulnerabilities%20and%20trust%20boundaries",
+    "canonical_refs": {
+      "surface": ".github/workflows/ci.yml#CI-and-deploy-scripts",
+      "boundary": "deploy.sh#remote-deploy-and-git-credentials",
+      "subsystem": ".",
+      "attack_class": "ATTACK-CLASSES.md#Chained vulnerabilities and trust boundaries"
+    },
+    "surface": ".github/workflows/ci.yml#CI-and-deploy-scripts",
+    "boundary": "deploy.sh#remote-deploy-and-git-credentials",
+    "subsystem": ".",
+    "attack_class": "Chained vulnerabilities and trust boundaries",
+    "starting_paths": [
+      ".github/workflows/ci.yml",
+      "deploy.sh",
+      "deploybot.sh",
+      "Dockerfile",
+      "backend/Dockerfile",
+      "backend/docker",
+      "docker",
+      "docker-compose.yml",
+      "wrangler.toml",
+      "package.json",
+      "backend/composer.json",
+      ".mcp.json",
+      ".dockerignore",
+      "backend/entrypoint.sh"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Chained vulnerabilities and trust boundaries",
+    "selected_companion_blocks": [
+      "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+      "SUPPLY-CHAIN-AND-RELEASE.md#Dependency and build-input attack classes",
+      "SUPPLY-CHAIN-AND-RELEASE.md#CI and automation attack classes",
+      "SUPPLY-CHAIN-AND-RELEASE.md#Release and update attack classes",
+      "SUPPLY-CHAIN-AND-RELEASE.md#Universal moves",
+      "SUPPLY-CHAIN-AND-RELEASE.md#Validation rules",
+      "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+      "CLOUD-AND-DEPLOYMENT.md#Container and orchestration attack classes",
+      "CLOUD-AND-DEPLOYMENT.md#Configuration and secret lifecycle attack classes",
+      "CLOUD-AND-DEPLOYMENT.md#Universal moves",
+      "CLOUD-AND-DEPLOYMENT.md#Validation rules"
+    ],
+    "excluded_blocks": [
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Ingress, network, and control-plane attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "AI-AND-LLM.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLIENT-SIDE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "covered",
+    "agent_id": "h13-supply-deploy",
+    "reviewed_paths": [
+      ".github/workflows/ci.yml",
+      "deploy.sh",
+      "deploybot.sh",
+      "Dockerfile",
+      "backend/Dockerfile",
+      "backend/docker/entrypoint.sh",
+      "docker-compose.yml",
+      "wrangler.toml",
+      "package.json",
+      ".mcp.json",
+      ".dockerignore"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "h13-supply-deploy",
+        "reviewed_paths": [
+          ".github/workflows/ci.yml",
+          "deploy.sh",
+          "deploybot.sh",
+          "Dockerfile",
+          "backend/Dockerfile",
+          "backend/docker/entrypoint.sh",
+          "docker-compose.yml",
+          "wrangler.toml",
+          "package.json",
+          ".mcp.json",
+          ".dockerignore"
+        ],
+        "invariant": "Untrusted PR code cannot reach secrets; deploy scripts and containers carry no lower-trust input into privileged execution",
+        "method": "source",
+        "result": "Source-only: no reachable privileged CI/deploy action; hardening notes (token permissions, action pinning, root containers, compose default password). wrangler ENVIRONMENT=development tracked under the developmentToken lead.",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [],
+    "unresolved": [],
+    "hardening": []
+  },
+  {
+    "coverage_id": "api%2Froutes%23Worker-lifecycle-deleteAccount-purge-tenant-status::api%2Fworker.ts%23lifecycle-parity-with-Laravel::api::ATTACK-CLASSES.md%23Business%20logic",
+    "canonical_refs": {
+      "surface": "api/routes#Worker-lifecycle-deleteAccount-purge-tenant-status",
+      "boundary": "api/worker.ts#lifecycle-parity-with-Laravel",
+      "subsystem": "api",
+      "attack_class": "ATTACK-CLASSES.md#Business logic"
+    },
+    "surface": "api/routes#Worker-lifecycle-deleteAccount-purge-tenant-status",
+    "boundary": "api/worker.ts#lifecycle-parity-with-Laravel",
+    "subsystem": "api",
+    "attack_class": "Business logic",
+    "starting_paths": [
+      "api/worker.ts",
+      "api/core.ts",
+      "api/routes"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Business logic",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "unit deferred; companion selection to be made when it is assigned"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "deferred",
+    "agent_id": null,
+    "reviewed_paths": [],
+    "local_checks": [],
+    "result_fingerprints": [],
+    "unresolved": [
+      "Second hunter wave and coverage-critic passes were not run in this engagement: Worker lifecycle parity (account deletion, purge) not reviewed"
+    ]
+  },
+  {
+    "coverage_id": "api%2Froutes%2Fauth.ts%23Worker-register-forgot-reset-invite::api%2Froutes%2Fauth.ts%23acceptInvite-session::api::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "api/routes/auth.ts#Worker-register-forgot-reset-invite",
+      "boundary": "api/routes/auth.ts#acceptInvite-session",
+      "subsystem": "api",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "api/routes/auth.ts#Worker-register-forgot-reset-invite",
+    "boundary": "api/routes/auth.ts#acceptInvite-session",
+    "subsystem": "api",
+    "attack_class": "Access control",
+    "starting_paths": [
+      "api/routes/auth.ts"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "unit deferred; companion selection to be made when it is assigned"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "deferred",
+    "agent_id": null,
+    "reviewed_paths": [],
+    "local_checks": [],
+    "result_fingerprints": [],
+    "unresolved": [
+      "Second hunter wave and coverage-critic passes were not run in this engagement: Worker account recovery/invite flows only partly covered by peer units"
+    ]
+  },
+  {
+    "coverage_id": "api%2Froutes%2Fbilling.ts%23Worker-billing-and-finance-routes::api%2Froutes%2Fbilling.ts%23changePlan-payInvoice-cancel::api::ATTACK-CLASSES.md%23Business%20logic",
+    "canonical_refs": {
+      "surface": "api/routes/billing.ts#Worker-billing-and-finance-routes",
+      "boundary": "api/routes/billing.ts#changePlan-payInvoice-cancel",
+      "subsystem": "api",
+      "attack_class": "ATTACK-CLASSES.md#Business logic"
+    },
+    "surface": "api/routes/billing.ts#Worker-billing-and-finance-routes",
+    "boundary": "api/routes/billing.ts#changePlan-payInvoice-cancel",
+    "subsystem": "api",
+    "attack_class": "Business logic",
+    "starting_paths": [
+      "api/routes/billing.ts"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Business logic",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "unit deferred; companion selection to be made when it is assigned"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "deferred",
+    "agent_id": null,
+    "reviewed_paths": [],
+    "local_checks": [],
+    "result_fingerprints": [],
+    "unresolved": [
+      "Second hunter wave and coverage-critic passes were not run in this engagement: Worker billing parity only skimmed"
+    ]
+  },
+  {
+    "coverage_id": "api%2Fworker.ts%23Worker-%2Fapi%2Fv1-routes::api%2Fcore.ts%23requireAuth-requirePermission-tenant-scoping::api::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "api/worker.ts#Worker-/api/v1-routes",
+      "boundary": "api/core.ts#requireAuth-requirePermission-tenant-scoping",
+      "subsystem": "api",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "api/worker.ts#Worker-/api/v1-routes",
+    "boundary": "api/core.ts#requireAuth-requirePermission-tenant-scoping",
+    "subsystem": "api",
+    "attack_class": "Access control",
+    "starting_paths": [
+      "api/worker.ts",
+      "api/core.ts",
+      "api/routes/crm.ts",
+      "api/routes/deals.ts",
+      "api/routes/ops.ts",
+      "api/routes/ops2.ts",
+      "api/routes/ai.ts",
+      "api/routes/aiCalls.ts",
+      "api/routes/portal.ts",
+      "api/routes/platform.ts"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Tenant and object-isolation attack classes",
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Derived-data and disclosure attack classes",
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Universal moves",
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Validation rules"
+    ],
+    "excluded_blocks": [
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Export, backup, restore, and migration attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Deletion, revocation, and lifecycle attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "AI-AND-LLM.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLIENT-SIDE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "h03-tenant-worker",
+    "reviewed_paths": [
+      "api/worker.ts",
+      "api/core.ts",
+      "api/routes/crm.ts",
+      "api/routes/deals.ts",
+      "api/routes/ops.ts",
+      "api/routes/ops2.ts",
+      "api/routes/ai.ts",
+      "api/routes/aiCalls.ts",
+      "api/routes/portal.ts",
+      "api/routes/platform.ts",
+      "api/routes/team.ts",
+      "api/routes/dashboard.ts",
+      "api/routes/notifications.ts"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "h03-tenant-worker",
+        "reviewed_paths": [
+          "api/worker.ts",
+          "api/core.ts",
+          "api/routes/crm.ts",
+          "api/routes/deals.ts",
+          "api/routes/ops.ts",
+          "api/routes/ops2.ts",
+          "api/routes/ai.ts",
+          "api/routes/aiCalls.ts",
+          "api/routes/portal.ts",
+          "api/routes/platform.ts",
+          "api/routes/team.ts",
+          "api/routes/dashboard.ts",
+          "api/routes/notifications.ts"
+        ],
+        "invariant": "Every direct object access and every foreign id is bound to the session tenant; platform/portal confinement holds",
+        "method": "source",
+        "result": "Source-only: direct lookups carry tenant_id; foreign ids unvalidated with id-only child queries; notifyUser cross-tenant (rejected by verifier); dashboard join; tenant status unenforced; updateMember owner escalation. Portal/platform confinement holds.",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "worker.tenant-scope.unvalidated-foreign-ids-unscoped-child-queries",
+      "worker.notifyUser.cross-tenant-recipient",
+      "platform.tenant-suspension-not-enforced-on-access",
+      "dashboard.byOwner-managers-deals-join-missing-tenant",
+      "team.updateMember.admin-self-promote-owner"
+    ],
+    "unresolved": [
+      "Local execution not performed: no PHP runtime / no OS sandbox; see findings.json blockers"
+    ],
+    "hardening": []
+  },
+  {
+    "coverage_id": "backend%2Fapp%2FConsole%2FCommands%23backup-restore-failover-purge::backend%2Fapp%2FServices%2FBackupService.php%23backup-confidentiality-and-restore::backend%2Fapp::ATTACK-CLASSES.md%23Business%20logic",
+    "canonical_refs": {
+      "surface": "backend/app/Console/Commands#backup-restore-failover-purge",
+      "boundary": "backend/app/Services/BackupService.php#backup-confidentiality-and-restore",
+      "subsystem": "backend/app",
+      "attack_class": "ATTACK-CLASSES.md#Business logic"
+    },
+    "surface": "backend/app/Console/Commands#backup-restore-failover-purge",
+    "boundary": "backend/app/Services/BackupService.php#backup-confidentiality-and-restore",
+    "subsystem": "backend/app",
+    "attack_class": "Business logic",
+    "starting_paths": [
+      "backend/app/Services/BackupService.php",
+      "backend/app/Services/DbReplica.php",
+      "backend/app/Console/Commands",
+      "backend/app/Http/Controllers/Api/V1/AuthController.php",
+      "backend/app/Http/Controllers/Api/V1/PlatformController.php",
+      "backend/routes/console.php",
+      "migrations",
+      "backend/database/migrations"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Business logic",
+    "selected_companion_blocks": [
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Export, backup, restore, and migration attack classes",
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Deletion, revocation, and lifecycle attack classes",
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Universal moves",
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Validation rules"
+    ],
+    "excluded_blocks": [
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Tenant and object-isolation attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Derived-data and disclosure attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "AI-AND-LLM.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLIENT-SIDE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "h15-lifecycle",
+    "reviewed_paths": [
+      "backend/app/Services/BackupService.php",
+      "backend/app/Services/DbReplica.php",
+      "backend/app/Console/Commands/DbRestore.php",
+      "backend/app/Console/Commands/PurgeDeletedAccounts.php",
+      "backend/app/Console/Commands/CreateSuperAdmin.php",
+      "backend/routes/console.php",
+      "backend/app/Http/Controllers/Api/V1/PlatformController.php",
+      "docs/OPERATIONS.md"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "h15-lifecycle",
+        "reviewed_paths": [
+          "backend/app/Services/BackupService.php",
+          "backend/app/Services/DbReplica.php",
+          "backend/app/Console/Commands/DbRestore.php",
+          "backend/app/Console/Commands/PurgeDeletedAccounts.php",
+          "backend/app/Console/Commands/CreateSuperAdmin.php",
+          "backend/routes/console.php",
+          "backend/app/Http/Controllers/Api/V1/PlatformController.php",
+          "docs/OPERATIONS.md"
+        ],
+        "invariant": "Backups do not expose live credentials; deletion/suspension/role change revoke every credential; restore is operator-only",
+        "method": "source",
+        "result": "Source-only: unencrypted backups hold raw bearer tokens; suspension unenforced; key scopes persist; restore reintroduction rejected as operator-only runbook gap.",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "platform.tenant-suspension-not-enforced-on-access",
+      "apikey.scopes-not-reconstrained-by-creator-current-role",
+      "laravel:backup-unencrypted-live-bearer-secrets-90d-retention",
+      "laravel:backup-restore-reintroduces-revoked-sessions-keys-memberships"
+    ],
+    "unresolved": [
+      "Local execution not performed: no PHP runtime / no OS sandbox; see findings.json blockers"
+    ],
+    "hardening": []
+  },
+  {
+    "coverage_id": "backend%2Fapp%2FHttp%2FControllers%23raw-queries-orderBy-whereRaw-DB-raw::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1%23query-construction::backend%2Fapp::ATTACK-CLASSES.md%23Injection",
+    "canonical_refs": {
+      "surface": "backend/app/Http/Controllers#raw-queries-orderBy-whereRaw-DB-raw",
+      "boundary": "backend/app/Http/Controllers/Api/V1#query-construction",
+      "subsystem": "backend/app",
+      "attack_class": "ATTACK-CLASSES.md#Injection"
+    },
+    "surface": "backend/app/Http/Controllers#raw-queries-orderBy-whereRaw-DB-raw",
+    "boundary": "backend/app/Http/Controllers/Api/V1#query-construction",
+    "subsystem": "backend/app",
+    "attack_class": "Injection",
+    "starting_paths": [
+      "backend/app/Http/Controllers",
+      "backend/app/Services",
+      "backend/app/Support",
+      "api/routes",
+      "api/core.ts"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Injection",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [
+      {
+        "block": "AI-AND-LLM.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLIENT-SIDE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "h10-sql-injection",
+    "reviewed_paths": [
+      "backend/app/Http/Controllers/Api/V1/CrmController.php",
+      "backend/app/Http/Controllers/Api/V1/SalesController.php",
+      "backend/app/Support/SqlDialect.php",
+      "backend/app/Support/H.php",
+      "backend/app/Plugins/PluginLifecycle.php",
+      "api/routes/crm.ts",
+      "api/core.ts"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "h10-sql-injection",
+        "reviewed_paths": [
+          "backend/app/Http/Controllers/Api/V1/CrmController.php",
+          "backend/app/Http/Controllers/Api/V1/SalesController.php",
+          "backend/app/Support/SqlDialect.php",
+          "backend/app/Support/H.php",
+          "backend/app/Plugins/PluginLifecycle.php",
+          "api/routes/crm.ts",
+          "api/core.ts"
+        ],
+        "invariant": "No request-controlled text reaches SQL text, commands or output sinks",
+        "method": "source",
+        "result": "Source-only: no SQL injection (fixed maps, bound values) in either stack; only the CSV formula sink found.",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "laravel-exportcsv-formula-injection-no-neutralisation"
+    ],
+    "unresolved": [
+      "Local execution not performed: no PHP runtime / no OS sandbox; see findings.json blockers"
+    ],
+    "hardening": []
+  },
+  {
+    "coverage_id": "backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1%2FAuthController.php%23tokens-hashes-secrets::backend%2Fapp%2FSupport%2FH.php%23password-hashing-and-token-generation::backend%2Fapp::ATTACK-CLASSES.md%23Cryptography%20and%20secrets",
+    "canonical_refs": {
+      "surface": "backend/app/Http/Controllers/Api/V1/AuthController.php#tokens-hashes-secrets",
+      "boundary": "backend/app/Support/H.php#password-hashing-and-token-generation",
+      "subsystem": "backend/app",
+      "attack_class": "ATTACK-CLASSES.md#Cryptography and secrets"
+    },
+    "surface": "backend/app/Http/Controllers/Api/V1/AuthController.php#tokens-hashes-secrets",
+    "boundary": "backend/app/Support/H.php#password-hashing-and-token-generation",
+    "subsystem": "backend/app",
+    "attack_class": "Cryptography and secrets",
+    "starting_paths": [
+      "backend/app/Support/H.php",
+      "backend/app/Plugins/SecretsVault.php",
+      "backend/app/Http/Controllers/Api/V1/PlatformController.php",
+      "backend/app/Http/Controllers/Api/V1/IntegrationsController.php",
+      "api/core.ts",
+      "seed/generate.mjs",
+      "seed/seed.sql",
+      "backend/database",
+      "backend/.env.example",
+      ".env.example"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Cryptography and secrets",
+    "selected_companion_blocks": [
+      "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+      "WEB-PROTOCOL-AND-AUTH.md#API-key and mTLS attack classes",
+      "WEB-PROTOCOL-AND-AUTH.md#Universal moves",
+      "WEB-PROTOCOL-AND-AUTH.md#Validation rules"
+    ],
+    "excluded_blocks": [
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Browser-session attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#MFA, passkey, and account-transition attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "AI-AND-LLM.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLIENT-SIDE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "h11-crypto",
+    "reviewed_paths": [
+      "backend/app/Support/H.php",
+      "backend/app/Plugins/SecretsVault.php",
+      "backend/app/Http/Controllers/Api/V1/AuthController.php",
+      "backend/app/Http/Controllers/Api/V1/PlatformController.php",
+      "api/core.ts",
+      "seed/generate.mjs",
+      "wrangler.toml"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "h11-crypto",
+        "reviewed_paths": [
+          "backend/app/Support/H.php",
+          "backend/app/Plugins/SecretsVault.php",
+          "backend/app/Http/Controllers/Api/V1/AuthController.php",
+          "backend/app/Http/Controllers/Api/V1/PlatformController.php",
+          "api/core.ts",
+          "seed/generate.mjs",
+          "wrangler.toml"
+        ],
+        "invariant": "Passwords/tokens/secrets use sound primitives and no default credentials are active",
+        "method": "source",
+        "result": "Source-only: PBKDF2/CSPRNG/AES-GCM/hash_equals sound; demo seeds gated by SEED_DEMO_DATA; reset token lifecycle and developmentToken candidates.",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "auth.reset.laravel-token-no-expiry-plaintext-no-revoke",
+      "auth.forgot-password.developmentToken-disclosure-nonprod"
+    ],
+    "unresolved": [
+      "Local execution not performed: no PHP runtime / no OS sandbox; see findings.json blockers"
+    ],
+    "hardening": []
+  },
+  {
+    "coverage_id": "backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1%2FCrmController.php%23plan-limit-enforcement::backend%2Fapp%2FServices%2FCustomPlanService.php%23contactLimit-seats::backend%2Fapp%2FHttp%2FControllers::ATTACK-CLASSES.md%23Business%20logic",
+    "canonical_refs": {
+      "surface": "backend/app/Http/Controllers/Api/V1/CrmController.php#plan-limit-enforcement",
+      "boundary": "backend/app/Services/CustomPlanService.php#contactLimit-seats",
+      "subsystem": "backend/app/Http/Controllers",
+      "attack_class": "ATTACK-CLASSES.md#Business logic"
+    },
+    "surface": "backend/app/Http/Controllers/Api/V1/CrmController.php#plan-limit-enforcement",
+    "boundary": "backend/app/Services/CustomPlanService.php#contactLimit-seats",
+    "subsystem": "backend/app/Http/Controllers",
+    "attack_class": "Business logic",
+    "starting_paths": [
+      "backend/app/Http/Controllers/Api/V1/CrmController.php",
+      "backend/app/Services/CustomPlanService.php",
+      "backend/app/Http/Controllers/Api/V1/TeamController.php"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Business logic",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "unit deferred; companion selection to be made when it is assigned"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "deferred",
+    "agent_id": null,
+    "reviewed_paths": [],
+    "local_checks": [],
+    "result_fingerprints": [],
+    "unresolved": [
+      "Second hunter wave and coverage-critic passes were not run in this engagement: Plan limit enforcement beyond a few call sites (import, lead forms, portal, API keys) not reviewed"
+    ]
+  },
+  {
+    "coverage_id": "backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1%2FIntegrationsController.php%23webhook-endpoints-and-testWebhook::backend%2Fapp%2FSupport%2FOutboundEndpoint.php%23parse::backend%2Fapp%2FServices::ATTACK-CLASSES.md%23Injection",
+    "canonical_refs": {
+      "surface": "backend/app/Http/Controllers/Api/V1/IntegrationsController.php#webhook-endpoints-and-testWebhook",
+      "boundary": "backend/app/Support/OutboundEndpoint.php#parse",
+      "subsystem": "backend/app/Services",
+      "attack_class": "ATTACK-CLASSES.md#Injection"
+    },
+    "surface": "backend/app/Http/Controllers/Api/V1/IntegrationsController.php#webhook-endpoints-and-testWebhook",
+    "boundary": "backend/app/Support/OutboundEndpoint.php#parse",
+    "subsystem": "backend/app/Services",
+    "attack_class": "Injection",
+    "starting_paths": [
+      "backend/app/Support/OutboundEndpoint.php",
+      "backend/app/Services/WebhookService.php",
+      "backend/app/Http/Controllers/Api/V1/IntegrationsController.php",
+      "backend/plugins/nexio.telephony/Providers/HttpTelephonyProvider.php",
+      "backend/plugins/nexio.uzum.delivery/Plugin.php",
+      "backend/plugins/nexio.yandex.delivery/Plugin.php",
+      "backend/app/Services/ImageGenerator.php",
+      "backend/app/Console/Commands/HealthAlert.php"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Injection",
+    "selected_companion_blocks": [
+      "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+      "CLOUD-AND-DEPLOYMENT.md#Ingress, network, and control-plane attack classes",
+      "CLOUD-AND-DEPLOYMENT.md#Universal moves",
+      "CLOUD-AND-DEPLOYMENT.md#Validation rules"
+    ],
+    "excluded_blocks": [
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Container and orchestration attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Configuration and secret lifecycle attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "AI-AND-LLM.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLIENT-SIDE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "h06-ssrf",
+    "reviewed_paths": [
+      "backend/app/Support/OutboundEndpoint.php",
+      "backend/app/Services/WebhookService.php",
+      "backend/app/Http/Controllers/Api/V1/IntegrationsController.php",
+      "backend/plugins/nexio.telephony/Providers/HttpTelephonyProvider.php",
+      "backend/plugins/nexio.uzum.delivery/Plugin.php",
+      "backend/plugins/nexio.yandex.delivery/Plugin.php",
+      "backend/app/Services/ImageGenerator.php"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "h06-ssrf",
+        "reviewed_paths": [
+          "backend/app/Support/OutboundEndpoint.php",
+          "backend/app/Services/WebhookService.php",
+          "backend/app/Http/Controllers/Api/V1/IntegrationsController.php",
+          "backend/plugins/nexio.telephony/Providers/HttpTelephonyProvider.php",
+          "backend/plugins/nexio.uzum.delivery/Plugin.php",
+          "backend/plugins/nexio.yandex.delivery/Plugin.php",
+          "backend/app/Services/ImageGenerator.php"
+        ],
+        "invariant": "Tenant-supplied URLs reach only public hosts at connect time",
+        "method": "source",
+        "result": "Source-only: weak OutboundEndpoint guard (isset bug, no IP pinning, range gaps) enables limited blind SSRF; Yandex fixed hosts adequate.",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "backend/OutboundEndpoint.parse/weak-ssrf-guard-toctou-and-range-gaps"
+    ],
+    "unresolved": [
+      "Local execution not performed: no PHP runtime / no OS sandbox; see findings.json blockers"
+    ],
+    "hardening": []
+  },
+  {
+    "coverage_id": "backend%2Fapp%2FHttp%2FMiddleware%2FApiContext.php%23rate-limits-and-quotas::backend%2Fapp%2FPlugins%2FUsageMeter.php%23quota-reservation::backend%2Fapp::ATTACK-CLASSES.md%23Business%20logic",
+    "canonical_refs": {
+      "surface": "backend/app/Http/Middleware/ApiContext.php#rate-limits-and-quotas",
+      "boundary": "backend/app/Plugins/UsageMeter.php#quota-reservation",
+      "subsystem": "backend/app",
+      "attack_class": "ATTACK-CLASSES.md#Business logic"
+    },
+    "surface": "backend/app/Http/Middleware/ApiContext.php#rate-limits-and-quotas",
+    "boundary": "backend/app/Plugins/UsageMeter.php#quota-reservation",
+    "subsystem": "backend/app",
+    "attack_class": "Business logic",
+    "starting_paths": [
+      "backend/app/Http/Middleware/ApiContext.php",
+      "backend/app/Plugins",
+      "backend/app/Services",
+      "backend/app/Jobs",
+      "backend/routes/console.php",
+      "backend/app/Console/Commands/RetryWebhooks.php",
+      "api/worker.ts",
+      "api/routes/ai.ts",
+      "backend/app/Http/Controllers/Api/V1/LeadFormController.php"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Business logic",
+    "selected_companion_blocks": [
+      "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+      "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Computational amplification attack classes",
+      "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Resource accumulation attack classes",
+      "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Quota and scheduling attack classes",
+      "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Failure and recovery attack classes",
+      "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Universal moves",
+      "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Validation rules"
+    ],
+    "excluded_blocks": [
+      {
+        "block": "AI-AND-LLM.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLIENT-SIDE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "h14-availability",
+    "reviewed_paths": [
+      "backend/app/Http/Middleware/ApiContext.php",
+      "backend/app/Plugins/UsageMeter.php",
+      "backend/app/Plugins/PluginRuntime.php",
+      "backend/app/Services/WebhookService.php",
+      "backend/app/Http/Controllers/Api/V1/LeadFormController.php",
+      "backend/routes/console.php",
+      "api/worker.ts",
+      "api/routes/ai.ts"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "h14-availability",
+        "reviewed_paths": [
+          "backend/app/Http/Middleware/ApiContext.php",
+          "backend/app/Plugins/UsageMeter.php",
+          "backend/app/Plugins/PluginRuntime.php",
+          "backend/app/Services/WebhookService.php",
+          "backend/app/Http/Controllers/Api/V1/LeadFormController.php",
+          "backend/routes/console.php",
+          "api/worker.ts",
+          "api/routes/ai.ts"
+        ],
+        "invariant": "Rate limits key on distinct clients; quota charges are server-defined; delivery work is bounded per tenant",
+        "method": "source",
+        "result": "Source-only: plugin amount client-controlled; IP-keyed limits without trusted proxies; inline webhook delivery and global retry loop.",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "plugin-usage-amount-client-controlled",
+      "ratelimit-key-shared-proxy-ip",
+      "webhook-delivery-inline-worker-pinning-and-global-retry-hol"
+    ],
+    "unresolved": [
+      "Local execution not performed: no PHP runtime / no OS sandbox; see findings.json blockers"
+    ],
+    "hardening": []
+  },
+  {
+    "coverage_id": "backend%2Froutes%2Fapi.php%23%2Fwebhooks%2Fai-voice-%2Fwebhooks%2Ftelegram-%2Foauth%2Ftoken-%2Fpublic%2Fforms::backend%2Fapp%2FHttp%2FControllers%2FAiVoiceWebhookController.php%23signature-and-tenant-binding::backend%2Fapp%2FHttp%2FControllers::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "backend/routes/api.php#/webhooks/ai-voice-/webhooks/telegram-/oauth/token-/public/forms",
+      "boundary": "backend/app/Http/Controllers/AiVoiceWebhookController.php#signature-and-tenant-binding",
+      "subsystem": "backend/app/Http/Controllers",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "backend/routes/api.php#/webhooks/ai-voice-/webhooks/telegram-/oauth/token-/public/forms",
+    "boundary": "backend/app/Http/Controllers/AiVoiceWebhookController.php#signature-and-tenant-binding",
+    "subsystem": "backend/app/Http/Controllers",
+    "attack_class": "Access control",
+    "starting_paths": [
+      "backend/app/Http/Controllers/AiVoiceWebhookController.php",
+      "backend/app/Http/Controllers/TelegramWebhookController.php",
+      "backend/app/Http/Controllers/OAuthController.php",
+      "backend/app/Http/Controllers/Api/V1/LeadFormController.php",
+      "backend/app/Services/TelegramBot.php",
+      "api/routes/notifications.ts",
+      "api/worker.ts"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [
+      "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+      "PROTOCOLS-RPC-AND-MESSAGING.md#RPC identity and authorization attack classes",
+      "PROTOCOLS-RPC-AND-MESSAGING.md#Replay, ordering, and transaction attack classes",
+      "PROTOCOLS-RPC-AND-MESSAGING.md#Universal moves",
+      "PROTOCOLS-RPC-AND-MESSAGING.md#Validation rules",
+      "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+      "WEB-PROTOCOL-AND-AUTH.md#API-key and mTLS attack classes",
+      "WEB-PROTOCOL-AND-AUTH.md#Universal moves",
+      "WEB-PROTOCOL-AND-AUTH.md#Validation rules"
+    ],
+    "excluded_blocks": [
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Browser-session attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#MFA, passkey, and account-transition attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "AI-AND-LLM.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLIENT-SIDE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "covered",
+    "agent_id": "h05-webhooks-inbound",
+    "reviewed_paths": [
+      "backend/routes/api.php",
+      "backend/app/Http/Controllers/AiVoiceWebhookController.php",
+      "backend/app/Http/Controllers/TelegramWebhookController.php",
+      "backend/app/Http/Controllers/OAuthController.php",
+      "backend/app/Http/Controllers/Api/V1/LeadFormController.php",
+      "backend/app/Services/TelegramBot.php",
+      "api/routes/notifications.ts"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "h05-webhooks-inbound",
+        "reviewed_paths": [
+          "backend/routes/api.php",
+          "backend/app/Http/Controllers/AiVoiceWebhookController.php",
+          "backend/app/Http/Controllers/TelegramWebhookController.php",
+          "backend/app/Http/Controllers/OAuthController.php",
+          "backend/app/Http/Controllers/Api/V1/LeadFormController.php",
+          "backend/app/Services/TelegramBot.php",
+          "api/routes/notifications.ts"
+        ],
+        "invariant": "Provider/public entry points authenticate the sender, derive the tenant from stored state and are idempotent",
+        "method": "source",
+        "result": "Source-only: AI-voice HMAC+tenant binding, Telegram secret+rotation (Laravel), OAuth client_credentials and lead forms hold; Worker Telegram webhook without secret recorded as hardening.",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [],
+    "unresolved": [],
+    "hardening": []
+  },
+  {
+    "coverage_id": "backend%2Froutes%2Fapi.php%23%2Fwebhooks%2Fclick-%2Fwebhooks%2Fpayme-billing-routes::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1%2FBillingController.php%23changePlan-payInvoice-resolveProvider::backend%2Fapp%2FHttp%2FControllers::ATTACK-CLASSES.md%23Business%20logic",
+    "canonical_refs": {
+      "surface": "backend/routes/api.php#/webhooks/click-/webhooks/payme-billing-routes",
+      "boundary": "backend/app/Http/Controllers/Api/V1/BillingController.php#changePlan-payInvoice-resolveProvider",
+      "subsystem": "backend/app/Http/Controllers",
+      "attack_class": "ATTACK-CLASSES.md#Business logic"
+    },
+    "surface": "backend/routes/api.php#/webhooks/click-/webhooks/payme-billing-routes",
+    "boundary": "backend/app/Http/Controllers/Api/V1/BillingController.php#changePlan-payInvoice-resolveProvider",
+    "subsystem": "backend/app/Http/Controllers",
+    "attack_class": "Business logic",
+    "starting_paths": [
+      "backend/app/Http/Controllers/Api/V1/BillingController.php",
+      "backend/app/Http/Controllers/ClickWebhookController.php",
+      "backend/app/Http/Controllers/PaymeWebhookController.php",
+      "backend/config/payments.php",
+      "backend/app/Services",
+      "api/routes/billing.ts"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Business logic",
+    "selected_companion_blocks": [
+      "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+      "PROTOCOLS-RPC-AND-MESSAGING.md#Replay, ordering, and transaction attack classes",
+      "PROTOCOLS-RPC-AND-MESSAGING.md#Universal moves",
+      "PROTOCOLS-RPC-AND-MESSAGING.md#Validation rules"
+    ],
+    "excluded_blocks": [
+      {
+        "block": "PROTOCOLS-RPC-AND-MESSAGING.md#RPC identity and authorization attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "AI-AND-LLM.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLIENT-SIDE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "h04-billing",
+    "reviewed_paths": [
+      "backend/routes/api.php",
+      "backend/routes/api_v1.php",
+      "backend/app/Http/Controllers/Api/V1/BillingController.php",
+      "backend/app/Http/Controllers/ClickWebhookController.php",
+      "backend/app/Http/Controllers/PaymeWebhookController.php",
+      "backend/config/payments.php",
+      "backend/app/Services/InvoiceSettlement.php",
+      "api/routes/billing.ts"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "h04-billing",
+        "reviewed_paths": [
+          "backend/routes/api.php",
+          "backend/routes/api_v1.php",
+          "backend/app/Http/Controllers/Api/V1/BillingController.php",
+          "backend/app/Http/Controllers/ClickWebhookController.php",
+          "backend/app/Http/Controllers/PaymeWebhookController.php",
+          "backend/config/payments.php",
+          "backend/app/Services/InvoiceSettlement.php",
+          "api/routes/billing.ts"
+        ],
+        "invariant": "Plan activation only after verified payment or operator grant; provider callbacks authenticated, amount-bound and idempotent",
+        "method": "source",
+        "result": "Source-only: sandbox default activates plans without payment; stale invoice snapshots not revalidated. Payme/Click authentication and amount checks verified.",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "billing:sandbox-provider-default-activates-plan-without-payment",
+      "billing:open-invoice-snapshot-credit-fx-not-revalidated-at-settlement"
+    ],
+    "unresolved": [
+      "Local execution not performed: no PHP runtime / no OS sandbox; see findings.json blockers"
+    ],
+    "hardening": []
+  },
+  {
+    "coverage_id": "backend%2Froutes%2Fapi_v1.php%23ai-routes-and-telegram-assistant::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1%2FAiController.php%23complete-finalizeCall-decideApproval::backend%2Fapp%2FServices::ATTACK-CLASSES.md%23Feature%20abuse%20and%20data%20leakage",
+    "canonical_refs": {
+      "surface": "backend/routes/api_v1.php#ai-routes-and-telegram-assistant",
+      "boundary": "backend/app/Http/Controllers/Api/V1/AiController.php#complete-finalizeCall-decideApproval",
+      "subsystem": "backend/app/Services",
+      "attack_class": "ATTACK-CLASSES.md#Feature abuse and data leakage"
+    },
+    "surface": "backend/routes/api_v1.php#ai-routes-and-telegram-assistant",
+    "boundary": "backend/app/Http/Controllers/Api/V1/AiController.php#complete-finalizeCall-decideApproval",
+    "subsystem": "backend/app/Services",
+    "attack_class": "Feature abuse and data leakage",
+    "starting_paths": [
+      "backend/app/Http/Controllers/Api/V1/AiController.php",
+      "backend/app/Http/Controllers/Api/V1/AiExtrasController.php",
+      "backend/app/Services/GroqAi.php",
+      "backend/app/Services/TelegramAssistant.php",
+      "backend/app/Services/TelegramBot.php",
+      "backend/app/Support/Speech.php",
+      "api/routes/ai.ts",
+      "api/routes/aiCalls.ts"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Feature abuse and data leakage",
+    "selected_companion_blocks": [
+      "AI-AND-LLM.md#Core discipline",
+      "AI-AND-LLM.md#Context, retrieval, and memory attack classes",
+      "AI-AND-LLM.md#Tool and action attack classes",
+      "AI-AND-LLM.md#Output and disclosure attack classes",
+      "AI-AND-LLM.md#Universal moves",
+      "AI-AND-LLM.md#Validation rules"
+    ],
+    "excluded_blocks": [
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLIENT-SIDE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "h08-ai",
+    "reviewed_paths": [
+      "backend/routes/api_v1.php",
+      "backend/app/Http/Controllers/Api/V1/AiController.php",
+      "backend/app/Http/Controllers/Api/V1/AiExtrasController.php",
+      "backend/app/Services/GroqAi.php",
+      "backend/app/Services/TelegramAssistant.php",
+      "backend/app/Services/AiQuota.php",
+      "api/routes/ai.ts",
+      "api/routes/aiCalls.ts"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "h08-ai",
+        "reviewed_paths": [
+          "backend/routes/api_v1.php",
+          "backend/app/Http/Controllers/Api/V1/AiController.php",
+          "backend/app/Http/Controllers/Api/V1/AiExtrasController.php",
+          "backend/app/Services/GroqAi.php",
+          "backend/app/Services/TelegramAssistant.php",
+          "backend/app/Services/AiQuota.php",
+          "api/routes/ai.ts",
+          "api/routes/aiCalls.ts"
+        ],
+        "invariant": "AI spend is gated by plan quota before the provider call; AI data reads require ai.read; assistant stays tenant/role-scoped",
+        "method": "source",
+        "result": "Source-only: /ai/complete quota bypass and client-chosen model; Laravel AI reads lack ai.read; Telegram assistant tenant scope holds.",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "nexio.ai-complete.quota-bypass-and-unmetered-spend",
+      "nexio.laravel-ai-read-endpoints.missing-ai-read-permission"
+    ],
+    "unresolved": [
+      "Local execution not performed: no PHP runtime / no OS sandbox; see findings.json blockers"
+    ],
+    "hardening": []
+  },
+  {
+    "coverage_id": "backend%2Froutes%2Fapi_v1.php%23attachments-export-reports::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1%2FCrmExtrasController.php%23upload-download-attachments::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1::ATTACK-CLASSES.md%23Resource%20and%20file%20handling",
+    "canonical_refs": {
+      "surface": "backend/routes/api_v1.php#attachments-export-reports",
+      "boundary": "backend/app/Http/Controllers/Api/V1/CrmExtrasController.php#upload-download-attachments",
+      "subsystem": "backend/app/Http/Controllers/Api/V1",
+      "attack_class": "ATTACK-CLASSES.md#Resource and file handling"
+    },
+    "surface": "backend/routes/api_v1.php#attachments-export-reports",
+    "boundary": "backend/app/Http/Controllers/Api/V1/CrmExtrasController.php#upload-download-attachments",
+    "subsystem": "backend/app/Http/Controllers/Api/V1",
+    "attack_class": "Resource and file handling",
+    "starting_paths": [
+      "backend/app/Http/Controllers/Api/V1/CrmExtrasController.php",
+      "backend/app/Http/Controllers/Api/V1/SalesController.php",
+      "backend/app/Http/Controllers/Api/V1/ReportsController.php",
+      "backend/app/Http/Controllers/Api/V1/WorkspaceController.php",
+      "api/routes/deals.ts"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Resource and file handling",
+    "selected_companion_blocks": [
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Export, backup, restore, and migration attack classes",
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Universal moves",
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Validation rules"
+    ],
+    "excluded_blocks": [
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Tenant and object-isolation attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Derived-data and disclosure attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Deletion, revocation, and lifecycle attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "AI-AND-LLM.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLIENT-SIDE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "h09-files-export",
+    "reviewed_paths": [
+      "backend/app/Http/Controllers/Api/V1/CrmExtrasController.php",
+      "backend/app/Http/Controllers/Api/V1/SalesController.php",
+      "backend/app/Http/Controllers/Api/V1/ReportsController.php",
+      "backend/app/Http/Controllers/Api/V1/WorkspaceController.php",
+      "api/routes/deals.ts"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "h09-files-export",
+        "reviewed_paths": [
+          "backend/app/Http/Controllers/Api/V1/CrmExtrasController.php",
+          "backend/app/Http/Controllers/Api/V1/SalesController.php",
+          "backend/app/Http/Controllers/Api/V1/ReportsController.php",
+          "backend/app/Http/Controllers/Api/V1/WorkspaceController.php",
+          "api/routes/deals.ts"
+        ],
+        "invariant": "Attachment paths/tenant scoping hold; CSV output neutralises formulas",
+        "method": "source",
+        "result": "Source-only: attachments tenant-scoped with allowlist; Laravel exportCsv lacks formula guard.",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "laravel-exportcsv-formula-injection-no-neutralisation"
+    ],
+    "unresolved": [
+      "Local execution not performed: no PHP runtime / no OS sandbox; see findings.json blockers"
+    ],
+    "hardening": []
+  },
+  {
+    "coverage_id": "backend%2Froutes%2Fapi_v1.php%23auth-session-recovery-invite-routes::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1%2FAuthController.php%23resetPassword-acceptInvite-login::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "backend/routes/api_v1.php#auth-session-recovery-invite-routes",
+      "boundary": "backend/app/Http/Controllers/Api/V1/AuthController.php#resetPassword-acceptInvite-login",
+      "subsystem": "backend/app/Http/Controllers/Api/V1",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "backend/routes/api_v1.php#auth-session-recovery-invite-routes",
+    "boundary": "backend/app/Http/Controllers/Api/V1/AuthController.php#resetPassword-acceptInvite-login",
+    "subsystem": "backend/app/Http/Controllers/Api/V1",
+    "attack_class": "Access control",
+    "starting_paths": [
+      "backend/app/Http/Controllers/Api/V1/AuthController.php",
+      "backend/app/Http/Controllers/Api/V1/TeamController.php",
+      "backend/app/Http/Middleware/ApiContext.php",
+      "api/routes/auth.ts",
+      "api/routes/team.ts",
+      "api/core.ts"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [
+      "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+      "WEB-PROTOCOL-AND-AUTH.md#Browser-session attack classes",
+      "WEB-PROTOCOL-AND-AUTH.md#MFA, passkey, and account-transition attack classes",
+      "WEB-PROTOCOL-AND-AUTH.md#API-key and mTLS attack classes",
+      "WEB-PROTOCOL-AND-AUTH.md#Universal moves",
+      "WEB-PROTOCOL-AND-AUTH.md#Validation rules"
+    ],
+    "excluded_blocks": [
+      {
+        "block": "AI-AND-LLM.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLIENT-SIDE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "h01-auth",
+    "reviewed_paths": [
+      "backend/routes/api_v1.php",
+      "backend/app/Http/Controllers/Api/V1/AuthController.php",
+      "backend/app/Http/Controllers/Api/V1/TeamController.php",
+      "backend/app/Http/Middleware/ApiContext.php",
+      "backend/app/Support/H.php",
+      "api/routes/auth.ts",
+      "api/routes/team.ts",
+      "api/core.ts"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "h01-auth",
+        "reviewed_paths": [
+          "backend/routes/api_v1.php",
+          "backend/app/Http/Controllers/Api/V1/AuthController.php",
+          "backend/app/Http/Controllers/Api/V1/TeamController.php",
+          "backend/app/Http/Middleware/ApiContext.php",
+          "backend/app/Support/H.php",
+          "api/routes/auth.ts",
+          "api/routes/team.ts",
+          "api/core.ts"
+        ],
+        "invariant": "Session issuance for an existing account requires proof of that account; reset tokens are time-limited and not disclosed; owner role assignment is owner-only",
+        "method": "source",
+        "result": "Source-only: invite->accept issues a victim session without credentials (both stacks); updateMember lacks the owner-only guard; Laravel reset ignores expires_at; developmentToken returned when env is not production.",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "auth.invite-accept.existing-account-session-no-credential",
+      "team.updateMember.admin-self-promote-owner",
+      "auth.reset.laravel-token-no-expiry-plaintext-no-revoke",
+      "auth.forgot-password.developmentToken-disclosure-nonprod"
+    ],
+    "unresolved": [
+      "Local execution not performed: no PHP runtime / no OS sandbox; see findings.json blockers"
+    ],
+    "hardening": []
+  },
+  {
+    "coverage_id": "backend%2Froutes%2Fapi_v1.php%23platform-marketplace-review-publish::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1%2FAdminMarketplaceController.php%23reviewVersion-publishVersion-grantPermission::backend%2Fapp%2FPlugins::ATTACK-CLASSES.md%23Business%20logic",
+    "canonical_refs": {
+      "surface": "backend/routes/api_v1.php#platform-marketplace-review-publish",
+      "boundary": "backend/app/Http/Controllers/Api/V1/AdminMarketplaceController.php#reviewVersion-publishVersion-grantPermission",
+      "subsystem": "backend/app/Plugins",
+      "attack_class": "ATTACK-CLASSES.md#Business logic"
+    },
+    "surface": "backend/routes/api_v1.php#platform-marketplace-review-publish",
+    "boundary": "backend/app/Http/Controllers/Api/V1/AdminMarketplaceController.php#reviewVersion-publishVersion-grantPermission",
+    "subsystem": "backend/app/Plugins",
+    "attack_class": "Business logic",
+    "starting_paths": [
+      "backend/app/Http/Controllers/Api/V1/AdminMarketplaceController.php",
+      "backend/app/Plugins/VersionManager.php"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Business logic",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "unit deferred; companion selection to be made when it is assigned"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "deferred",
+    "agent_id": null,
+    "reviewed_paths": [],
+    "local_checks": [],
+    "result_fingerprints": [],
+    "unresolved": [
+      "Second hunter wave and coverage-critic passes were not run in this engagement: Publish/review/grant integrity and checksum verification only grepped"
+    ]
+  },
+  {
+    "coverage_id": "backend%2Froutes%2Fapi_v1.php%23plugin-manager-connections-secrets::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1%2FPluginManagerController.php%23createConnection-putSecrets::backend%2Fapp%2FPlugins::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "backend/routes/api_v1.php#plugin-manager-connections-secrets",
+      "boundary": "backend/app/Http/Controllers/Api/V1/PluginManagerController.php#createConnection-putSecrets",
+      "subsystem": "backend/app/Plugins",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "backend/routes/api_v1.php#plugin-manager-connections-secrets",
+    "boundary": "backend/app/Http/Controllers/Api/V1/PluginManagerController.php#createConnection-putSecrets",
+    "subsystem": "backend/app/Plugins",
+    "attack_class": "Access control",
+    "starting_paths": [
+      "backend/app/Http/Controllers/Api/V1/PluginManagerController.php",
+      "backend/app/Plugins/SecretsVault.php"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "unit deferred; companion selection to be made when it is assigned"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "deferred",
+    "agent_id": null,
+    "reviewed_paths": [],
+    "local_checks": [],
+    "result_fingerprints": [],
+    "unresolved": [
+      "Second hunter wave and coverage-critic passes were not run in this engagement: RBAC and SSRF handling of connection api_url and secret endpoints not read in full"
+    ]
+  },
+  {
+    "coverage_id": "backend%2Froutes%2Fapi_v1.php%23plugins-marketplace-developer-routes::backend%2Fapp%2FPlugins%2FPluginRuntime.php%23invoke::backend%2Fapp%2FPlugins::ATTACK-CLASSES.md%23Resource%20and%20file%20handling",
+    "canonical_refs": {
+      "surface": "backend/routes/api_v1.php#plugins-marketplace-developer-routes",
+      "boundary": "backend/app/Plugins/PluginRuntime.php#invoke",
+      "subsystem": "backend/app/Plugins",
+      "attack_class": "ATTACK-CLASSES.md#Resource and file handling"
+    },
+    "surface": "backend/routes/api_v1.php#plugins-marketplace-developer-routes",
+    "boundary": "backend/app/Plugins/PluginRuntime.php#invoke",
+    "subsystem": "backend/app/Plugins",
+    "attack_class": "Resource and file handling",
+    "starting_paths": [
+      "backend/app/Plugins",
+      "backend/plugins",
+      "backend/app/Http/Controllers/Api/V1/PluginOperationsController.php",
+      "backend/app/Http/Controllers/Api/V1/DeveloperController.php",
+      "backend/app/Http/Controllers/Api/V1/MarketplaceController.php",
+      "backend/app/Http/Controllers/Api/V1/AdminMarketplaceController.php"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Resource and file handling",
+    "selected_companion_blocks": [
+      "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+      "SUPPLY-CHAIN-AND-RELEASE.md#Release and update attack classes",
+      "SUPPLY-CHAIN-AND-RELEASE.md#Universal moves",
+      "SUPPLY-CHAIN-AND-RELEASE.md#Validation rules"
+    ],
+    "excluded_blocks": [
+      {
+        "block": "SUPPLY-CHAIN-AND-RELEASE.md#Dependency and build-input attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "SUPPLY-CHAIN-AND-RELEASE.md#CI and automation attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "AI-AND-LLM.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLIENT-SIDE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "h07-plugins",
+    "reviewed_paths": [
+      "backend/routes/api_v1.php",
+      "backend/app/Plugins/PluginRuntime.php",
+      "backend/app/Plugins/PermissionEngine.php",
+      "backend/app/Plugins/PackageStore.php",
+      "backend/app/Plugins/PluginLoader.php",
+      "backend/app/Plugins/SecretsVault.php",
+      "backend/app/Http/Controllers/Api/V1/PluginOperationsController.php",
+      "backend/app/Http/Controllers/Api/V1/DeveloperController.php"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "h07-plugins",
+        "reviewed_paths": [
+          "backend/routes/api_v1.php",
+          "backend/app/Plugins/PluginRuntime.php",
+          "backend/app/Plugins/PermissionEngine.php",
+          "backend/app/Plugins/PackageStore.php",
+          "backend/app/Plugins/PluginLoader.php",
+          "backend/app/Plugins/SecretsVault.php",
+          "backend/app/Http/Controllers/Api/V1/PluginOperationsController.php",
+          "backend/app/Http/Controllers/Api/V1/DeveloperController.php"
+        ],
+        "invariant": "Plugin operations require the caller own permission; uploaded packages are never extracted or executed",
+        "method": "source",
+        "result": "Source-only: generic operation route has no per-user RBAC; package inspection and loader confinement hold. Connection/secret handlers and admin publish logic not fully traced (deferred).",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "backend/plugin-operations-invoke-missing-user-rbac"
+    ],
+    "unresolved": [
+      "Local execution not performed: no PHP runtime / no OS sandbox; see findings.json blockers",
+      "PluginManagerController connection/secret handlers and AdminMarketplaceController review/publish not fully traced"
+    ],
+    "hardening": []
+  },
+  {
+    "coverage_id": "backend%2Froutes%2Fapi_v1.php%23tenant-and-platform-routes::backend%2Fapp%2FSupport%2FH.php%23requirePermission-requirePlatform::backend%2Fapp%2FHttp%2FControllers%2FApi%2FV1::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "backend/routes/api_v1.php#tenant-and-platform-routes",
+      "boundary": "backend/app/Support/H.php#requirePermission-requirePlatform",
+      "subsystem": "backend/app/Http/Controllers/Api/V1",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "backend/routes/api_v1.php#tenant-and-platform-routes",
+    "boundary": "backend/app/Support/H.php#requirePermission-requirePlatform",
+    "subsystem": "backend/app/Http/Controllers/Api/V1",
+    "attack_class": "Access control",
+    "starting_paths": [
+      "backend/app/Support/H.php",
+      "backend/app/Support/Rbac.php",
+      "backend/app/Http/Controllers/Api/V1/PlatformController.php",
+      "backend/app/Http/Controllers/Api/V1/TeamController.php",
+      "backend/app/Http/Controllers/Api/V1/PortalController.php",
+      "backend/app/Http/Controllers/Api/V1/IntegrationsController.php",
+      "backend/app/Http/Middleware/ApiContext.php"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Tenant and object-isolation attack classes",
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Universal moves",
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Validation rules",
+      "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+      "WEB-PROTOCOL-AND-AUTH.md#API-key and mTLS attack classes",
+      "WEB-PROTOCOL-AND-AUTH.md#Universal moves",
+      "WEB-PROTOCOL-AND-AUTH.md#Validation rules"
+    ],
+    "excluded_blocks": [
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Derived-data and disclosure attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Export, backup, restore, and migration attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Deletion, revocation, and lifecycle attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Browser-session attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#MFA, passkey, and account-transition attack classes",
+        "reason": "not the primary boundary of this unit; owned by a peer unit or not source-visible here"
+      },
+      {
+        "block": "AI-AND-LLM.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLIENT-SIDE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "h02-rbac-laravel",
+    "reviewed_paths": [
+      "backend/routes/api_v1.php",
+      "backend/app/Support/H.php",
+      "backend/app/Support/Rbac.php",
+      "backend/app/Http/Middleware/ApiContext.php",
+      "backend/app/Http/Controllers/Api/V1/TeamController.php",
+      "backend/app/Http/Controllers/Api/V1/PlatformController.php",
+      "backend/app/Http/Controllers/Api/V1/PortalController.php",
+      "backend/app/Http/Controllers/Api/V1/IntegrationsController.php",
+      "backend/app/Http/Controllers/Api/V1/DashboardController.php"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "h02-rbac-laravel",
+        "reviewed_paths": [
+          "backend/routes/api_v1.php",
+          "backend/app/Support/H.php",
+          "backend/app/Support/Rbac.php",
+          "backend/app/Http/Middleware/ApiContext.php",
+          "backend/app/Http/Controllers/Api/V1/TeamController.php",
+          "backend/app/Http/Controllers/Api/V1/PlatformController.php",
+          "backend/app/Http/Controllers/Api/V1/PortalController.php",
+          "backend/app/Http/Controllers/Api/V1/IntegrationsController.php",
+          "backend/app/Http/Controllers/Api/V1/DashboardController.php"
+        ],
+        "invariant": "Role changes, tenant suspension, aggregates and API-key scopes respect the actor/creator permissions and the tenant",
+        "method": "source",
+        "result": "Source-only: Laravel RBAC gaps confirmed (admin->owner, suspension not enforced, dashboard join, key scopes). Portal confinement and platform route guards hold.",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "team.updateMember.admin-self-promote-owner",
+      "platform.tenant-suspension-not-enforced-on-access",
+      "dashboard.byOwner-managers-deals-join-missing-tenant",
+      "apikey.scopes-not-reconstrained-by-creator-current-role"
+    ],
+    "unresolved": [
+      "Local execution not performed: no PHP runtime / no OS sandbox; see findings.json blockers"
+    ],
+    "hardening": []
+  },
+  {
+    "coverage_id": "repo%23obvious-things-sweep::repo%23debug-endpoints-default-creds-error-leaks::repo::ATTACK-CLASSES.md%23Obvious%20things",
+    "canonical_refs": {
+      "surface": "repo#obvious-things-sweep",
+      "boundary": "repo#debug-endpoints-default-creds-error-leaks",
+      "subsystem": "repo",
+      "attack_class": "ATTACK-CLASSES.md#Obvious things"
+    },
+    "surface": "repo#obvious-things-sweep",
+    "boundary": "repo#debug-endpoints-default-creds-error-leaks",
+    "subsystem": "repo",
+    "attack_class": "Obvious things",
+    "starting_paths": [
+      "backend/app",
+      "api",
+      "src",
+      "backend/config",
+      "backend/routes",
+      "seed",
+      "docker-compose.yml"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Obvious things",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [
+      {
+        "block": "AI-AND-LLM.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLIENT-SIDE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "h16-wildcard",
+    "reviewed_paths": [
+      "wrangler.toml",
+      "api/routes/auth.ts",
+      "backend/routes/api.php",
+      "backend/config/app.php",
+      "backend/config/cors.php",
+      "seed/generate.mjs",
+      "docker-compose.yml",
+      "backend/public/nexio-widget.js"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "h16-wildcard",
+        "reviewed_paths": [
+          "wrangler.toml",
+          "api/routes/auth.ts",
+          "backend/routes/api.php",
+          "backend/config/app.php",
+          "backend/config/cors.php",
+          "seed/generate.mjs",
+          "docker-compose.yml",
+          "backend/public/nexio-widget.js"
+        ],
+        "invariant": "No debug routes, default credentials or verbose errors are reachable in production configuration",
+        "method": "source",
+        "result": "Source-only: no debug routes or leaked traces; committed ENVIRONMENT=development enables developmentToken on the Worker.",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "auth.forgot-password.developmentToken-disclosure-nonprod"
+    ],
+    "unresolved": [
+      "Local execution not performed: no PHP runtime / no OS sandbox; see findings.json blockers"
+    ],
+    "hardening": []
+  },
+  {
+    "coverage_id": "repo%23wildcard-cross-cutting-review::repo%23unexpected-boundaries-and-chains::backend%2Fapp::ATTACK-CLASSES.md%23Wildcard",
+    "canonical_refs": {
+      "surface": "repo#wildcard-cross-cutting-review",
+      "boundary": "repo#unexpected-boundaries-and-chains",
+      "subsystem": "backend/app",
+      "attack_class": "ATTACK-CLASSES.md#Wildcard"
+    },
+    "surface": "repo#wildcard-cross-cutting-review",
+    "boundary": "repo#unexpected-boundaries-and-chains",
+    "subsystem": "backend/app",
+    "attack_class": "Wildcard",
+    "starting_paths": [
+      "backend/app",
+      "api",
+      "src",
+      "backend/routes",
+      "backend/config"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Wildcard",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [
+      {
+        "block": "AI-AND-LLM.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLIENT-SIDE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "h16-wildcard",
+    "reviewed_paths": [
+      "backend/app/Http/Middleware/ApiContext.php",
+      "backend/app/Http/Controllers/Api/V1/PlatformController.php",
+      "backend/app/Http/Controllers/Api/V1/AuthController.php",
+      "backend/app/Services/CardBillingService.php",
+      "backend/app/Http/Controllers/OAuthController.php",
+      "api/core.ts"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "h16-wildcard",
+        "reviewed_paths": [
+          "backend/app/Http/Middleware/ApiContext.php",
+          "backend/app/Http/Controllers/Api/V1/PlatformController.php",
+          "backend/app/Http/Controllers/Api/V1/AuthController.php",
+          "backend/app/Services/CardBillingService.php",
+          "backend/app/Http/Controllers/OAuthController.php",
+          "api/core.ts"
+        ],
+        "invariant": "Operator tenant status denies users and keys on every request",
+        "method": "source",
+        "result": "Source-only: suspension is not enforced after the one-time session expiry; OAuth/API scope confinement holds.",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "platform.tenant-suspension-not-enforced-on-access"
+    ],
+    "unresolved": [
+      "Local execution not performed: no PHP runtime / no OS sandbox; see findings.json blockers"
+    ],
+    "hardening": []
+  },
+  {
+    "coverage_id": "src%2Flib%2Fapi.ts%23SPA-api-client-and-native-session::src%2Flib%2Fnative.ts%23SecureStorage-session-and-openExternal::src::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "src/lib/api.ts#SPA-api-client-and-native-session",
+      "boundary": "src/lib/native.ts#SecureStorage-session-and-openExternal",
+      "subsystem": "src",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "src/lib/api.ts#SPA-api-client-and-native-session",
+    "boundary": "src/lib/native.ts#SecureStorage-session-and-openExternal",
+    "subsystem": "src",
+    "attack_class": "Access control",
+    "starting_paths": [
+      "src/lib/api.ts",
+      "src/lib/native.ts",
+      "src/lib/hooks.ts",
+      "src/App.tsx",
+      "src/pages",
+      "src/components",
+      "capacitor.config.ts",
+      "android/app/src/main/AndroidManifest.xml",
+      "android/app/src/main/res/xml/file_paths.xml",
+      "android/app/build.gradle",
+      "ios/App/App/Info.plist",
+      "backend/config/cors.php",
+      "docker/spa-nginx.conf",
+      "index.html"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [
+      "CLIENT-SIDE.md#Core discipline",
+      "CLIENT-SIDE.md#DOM and object-state attack classes",
+      "CLIENT-SIDE.md#Cross-origin messaging and network attack classes",
+      "CLIENT-SIDE.md#Service-worker and browser-storage attack classes",
+      "CLIENT-SIDE.md#Universal moves",
+      "CLIENT-SIDE.md#Validation rules",
+      "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+      "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Deep-link, callback, and navigation attack classes",
+      "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Webview and native-bridge attack classes",
+      "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Local IPC and exported-component attack classes",
+      "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Application-state and device-lifecycle attack classes",
+      "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Universal moves",
+      "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Validation rules"
+    ],
+    "excluded_blocks": [
+      {
+        "block": "AI-AND-LLM.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      },
+      {
+        "block": "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+        "reason": "companion domain not a boundary of this unit; covered by a peer unit"
+      }
+    ],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "h12-client",
+    "reviewed_paths": [
+      "src/lib/api.ts",
+      "src/lib/native.ts",
+      "src/lib/hooks.ts",
+      "src/pages/app/CompanyDetail.tsx",
+      "capacitor.config.ts",
+      "android/app/src/main/AndroidManifest.xml",
+      "android/app/src/main/res/xml/file_paths.xml",
+      "android/app/build.gradle",
+      "ios/App/App/Info.plist",
+      "backend/config/cors.php",
+      "docker/spa-nginx.conf"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "h12-client",
+        "reviewed_paths": [
+          "src/lib/api.ts",
+          "src/lib/native.ts",
+          "src/lib/hooks.ts",
+          "src/pages/app/CompanyDetail.tsx",
+          "capacitor.config.ts",
+          "android/app/src/main/AndroidManifest.xml",
+          "android/app/src/main/res/xml/file_paths.xml",
+          "android/app/build.gradle",
+          "ios/App/App/Info.plist",
+          "backend/config/cors.php",
+          "docker/spa-nginx.conf"
+        ],
+        "invariant": "Stored strings do not reach executable URL sinks; native packaging exposes no components or credentialed CORS",
+        "method": "source",
+        "result": "Source-only: stored javascript: href sink in CompanyDetail; no CSP; native manifest hardening notes only.",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "spa.stored-javascript-url-in-organization-website-href"
+    ],
+    "unresolved": [
+      "Local execution not performed: no PHP runtime / no OS sandbox; see findings.json blockers"
+    ],
+    "hardening": []
+  }
+]

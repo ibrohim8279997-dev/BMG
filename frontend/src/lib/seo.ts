@@ -12,7 +12,8 @@ export function pageMeta(lang: string, path: string, title: string, description:
       canonical: `/${lang}${path}`,
       languages: Object.fromEntries(LANGS.map((l) => [l, `/${l}${path}`])),
     },
-    openGraph: { title, description, locale: lang, type: 'website' },
+    openGraph: { title, description, locale: lang, type: 'website', siteName: 'BMG', images: [{ url: `/og-${lang}.png`, width: 1200, height: 630, alt: 'BMG — Build Market Group' }] },
+    twitter: { card: 'summary_large_image', title, description, images: [`/og-${lang}.png`] },
     robots: noindex ? { index: false, follow: false } : undefined,
   };
 }

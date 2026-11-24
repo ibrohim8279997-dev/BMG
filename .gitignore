@@ -12,3 +12,4 @@ node_modules/
 backend/db.sqlite3
 backend/.env
 frontend/.env
+.next-test/

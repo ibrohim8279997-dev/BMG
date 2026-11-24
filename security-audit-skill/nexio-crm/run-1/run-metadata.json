@@ -1,0 +1,72 @@
+{
+  "run_id": "nexio-crm-run-1",
+  "repo": "nexio-crm",
+  "target": "/Users/zzz/Desktop/nexio crm",
+  "source_ref": {
+    "commit": "5dd3183355c1637d3503689de89102bcba7c9661",
+    "worktree_dirty": true,
+    "dirty_note": "founder/ docs and .claude-flow policy files modified; application source (api, backend, src) unmodified"
+  },
+  "profile": "standard",
+  "scope_paths": [
+    "api",
+    "backend/app",
+    "backend/routes",
+    "backend/config",
+    "backend/database",
+    "backend/plugins",
+    "src",
+    "wrangler.toml",
+    "Dockerfile",
+    "docker",
+    "docker-compose.yml",
+    "deploy.sh",
+    "deploybot.sh",
+    ".github",
+    "android",
+    "ios",
+    "capacitor.config.ts",
+    "migrations"
+  ],
+  "excluded_paths": [
+    "founder",
+    "node_modules",
+    "dist",
+    ".claude-flow",
+    ".swarm",
+    "docs (marketing/plan)",
+    "*.pdf",
+    "*.log"
+  ],
+  "budget": null,
+  "execution_policy": "sandboxed-source-and-local-only",
+  "execution_note": "No target code executed: PHP/composer absent and no full OS sandbox (network/env/resource limits) enforceable; source-only audit, decisive runtime facts become needs_validation.",
+  "companion_files": [],
+  "prior_runs": [],
+  "shared_file_owners": "parent",
+  "run_status": "incomplete",
+  "incomplete_reason": "coverage_critic_waves_and_second_hunter_wave_not_run",
+  "agents_spent": {
+    "recon": 5,
+    "hunters": 16,
+    "verifiers": 22,
+    "coverage_critics": 0,
+    "final_record_verifiers": 0
+  },
+  "phase_deviations": [
+    "Phase 5 merged into Phase 3 (one independent verifier per candidate)",
+    "No coverage-critic passes and no second hunter wave; 6 units deferred",
+    "Hunter prompts supplied as generated files with verbatim blocks"
+  ],
+  "selected_companion_files": [
+    "AI-AND-LLM.md",
+    "WEB-PROTOCOL-AND-AUTH.md",
+    "CLIENT-SIDE.md",
+    "SUPPLY-CHAIN-AND-RELEASE.md",
+    "CLOUD-AND-DEPLOYMENT.md",
+    "PROTOCOLS-RPC-AND-MESSAGING.md",
+    "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md",
+    "DATA-ISOLATION-AND-LIFECYCLE.md",
+    "DESKTOP-MOBILE-AND-LOCAL-IPC.md"
+  ]
+}

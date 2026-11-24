@@ -32,7 +32,7 @@ export async function api<T = any>(path: string, opts: { method?: string; body?:
   if (res.status === 204) return undefined as T;
   let data: any = null;
   try { data = await res.json(); } catch { /* empty */ }
-  if (!res.ok) throw { status: res.status, error: data?.error || (res.status === 403 ? 'forbidden' : 'server_error'), data } as ApiError;
+  if (!res.ok) throw { status: res.status, error: data?.error || (res.status === 403 ? 'forbidden' : res.status === 429 ? 'rate_limited' : 'server_error'), data } as ApiError;
   return data as T;
 }
 

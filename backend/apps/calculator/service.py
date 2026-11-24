@@ -19,9 +19,38 @@ class NormsUnavailable(Exception):
     pass
 
 
+ROOF_TYPES = ('gable', 'hip', 'mono', 'flat')
+OVERHANG = 1.08             # eaves overhang allowance on roof area
+
+
+def has_geometry(obj):
+    return bool(getattr(obj, 'length', None) and getattr(obj, 'width', None))
+
+
+def roof_area(obj):
+    """Roof surface from real dimensions: footprint / cos(pitch) for sloped roofs, footprint for flat ones."""
+    foot = float(obj.length) * float(obj.width)
+    kind = getattr(obj, 'roof_type', '') or 'gable'
+    if kind == 'flat':
+        return foot * 1.03
+    pitch = math.radians(min(70, max(5, int(getattr(obj, 'roof_pitch', None) or 30))))
+    return foot / math.cos(pitch) * OVERHANG
+
+
 def zone_area(obj, zone):
-    """Rough geometric basis of a zone (m2). All figures are approximations."""
+    """Geometric basis of a zone (m2). Uses the real length x width x height when the 3D designer supplied them,
+    otherwise rough rules of thumb. All figures are approximations."""
     area, floors = float(obj.area), max(1, obj.floors)
+    if has_geometry(obj) and obj.type != 'apartment':
+        length, width = float(obj.length), float(obj.width)
+        height = float(getattr(obj, 'floor_height', None) or CEILING_HEIGHT)
+        if zone in ('floor', 'ceiling'):
+            return length * width * floors
+        if zone == 'roof':
+            return roof_area(obj)
+        if zone == 'walls':
+            return 2 * (length + width) * height * floors
+        raise ValueError(zone)
     if zone in ('floor', 'ceiling'):
         return area
     if zone == 'roof':

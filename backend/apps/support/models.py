@@ -11,3 +11,18 @@ class Complaint(models.Model):
     assignee = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
                                  related_name='+')
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Review(models.Model):
+    """One review per (order, seller), only after that seller's items were delivered."""
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reviews')
+    seller = models.ForeignKey('sellers.Seller', on_delete=models.CASCADE, related_name='reviews')
+    order = models.ForeignKey('orders.Order', on_delete=models.CASCADE, related_name='reviews')
+    rating = models.PositiveSmallIntegerField()                # 1..5
+    text = models.TextField(max_length=1000, blank=True)
+    hidden = models.BooleanField(default=False)                # moderation: hidden reviews do not count
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('order', 'seller')]
+        ordering = ['-id']

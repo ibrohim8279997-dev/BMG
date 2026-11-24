@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { ErrorText } from '@/components/Bits';
+import { Accounting, Analytics, Content, Flags, Model, Quality, Reports, ReviewsMod } from '@/components/AdminReports';
 import { useT } from '@/components/Providers';
 import { api } from '@/lib/api';
 
@@ -40,8 +41,9 @@ function Login({ onDone }: { onDone: () => void }) {
   );
 }
 
-const ALL_TABS = [['sellers', 'sellers'], ['commission', 'sellers'], ['settings', 'settings'], ['complaints', 'support'],
-  ['audit', 'audit'], ['orders', 'orders'], ['payouts', 'finance'], ['roles', 'roles']];
+const ALL_TABS = [['sellers', 'sellers'], ['applications', 'sellers'], ['commission', 'sellers'], ['settings', 'settings'], ['complaints', 'support'],
+  ['audit', 'audit'], ['orders', 'orders'], ['payouts', 'finance'], ['roles', 'roles'],
+  ['analytics', 'finance'], ['reports', 'finance'], ['quality', 'sellers'], ['flags', 'sellers'], ['reviews', 'support'], ['content', 'catalog'], ['accounting', 'finance'], ['model', 'finance']];
 
 function Panel({ me, onLogout, t }: { me: any; onLogout: () => void; t: (k: string) => string }) {
   const can = (p: string) => me.permissions.includes('*') || me.permissions.includes(p);
@@ -53,6 +55,7 @@ function Panel({ me, onLogout, t }: { me: any; onLogout: () => void; t: (k: stri
         <div style={{ flex: '0 0 auto' }}><button className="btn ghost" onClick={onLogout}>{t('nav.logout')}</button></div></div>
       <div className="tabs">{tabs.map((x) => <button key={x} className={`btn ${tab === x ? 'on' : ''}`} onClick={() => setTab(x)}>{t(`admin.tab.${x}`)}</button>)}</div>
       {tab === 'sellers' && <Sellers t={t} />}
+      {tab === 'applications' && <Applications t={t} />}
       {tab === 'commission' && <Levels t={t} />}
       {tab === 'settings' && <SettingsTab t={t} />}
       {tab === 'complaints' && <Complaints t={t} />}
@@ -60,6 +63,14 @@ function Panel({ me, onLogout, t }: { me: any; onLogout: () => void; t: (k: stri
       {tab === 'orders' && <Orders t={t} />}
       {tab === 'payouts' && <Payouts t={t} />}
       {tab === 'roles' && <Roles t={t} />}
+      {tab === 'analytics' && <Analytics t={t} />}
+      {tab === 'reports' && <Reports t={t} />}
+      {tab === 'quality' && <Quality t={t} />}
+      {tab === 'flags' && <Flags t={t} />}
+      {tab === 'reviews' && <ReviewsMod t={t} />}
+      {tab === 'content' && <Content t={t} />}
+      {tab === 'accounting' && <Accounting t={t} />}
+      {tab === 'model' && <Model t={t} />}
     </>
   );
 }
@@ -114,7 +125,7 @@ function SettingsTab({ t }: any) {
   async function save() {
     setErr(null);
     const body: any = {};
-    for (const [k, v] of Object.entries(vals)) body[k] = typeof v === 'boolean' ? v : Number(v);
+    for (const [k, v] of Object.entries(vals)) body[k] = typeof v === 'boolean' || typeof rows?.[k] === 'string' ? v : Number(v);
     try { await api('/admin-api/settings', { method: 'PUT', body }); load(); } catch (e: any) { setErr(e.error); }
   }
   return (
@@ -123,9 +134,25 @@ function SettingsTab({ t }: any) {
         <div className="field" key={k}>
           {typeof v === 'boolean'
             ? <label className="check"><input type="checkbox" checked={v as boolean} onChange={(e) => setVals({ ...vals, [k]: e.target.checked })} /><span>{t(`setting.${k}`)}</span></label>
-            : <><label htmlFor={k}>{t(`setting.${k}`)}</label><input id={k} type="number" value={v as any} onChange={(e) => setVals({ ...vals, [k]: e.target.value })} /></>}
+            : <><label htmlFor={k}>{t(`setting.${k}`)}</label><input id={k} type={typeof rows?.[k] === 'string' ? 'text' : 'number'} maxLength={100} value={v as any} onChange={(e) => setVals({ ...vals, [k]: e.target.value })} /></>}
         </div>))}
       <button className="btn" onClick={save}>{t('save')}</button></div>
+  );
+}
+
+function Applications({ t }: any) {
+  const { rows, load } = useList('/admin-api/seller-applications');
+  if (rows && rows.length === 0) return <div className="empty card">{t('sellers.none')}</div>;
+  return (
+    <div className="card table-wrap"><table>
+      <thead><tr><th>#</th><th>{t('apply.company')}</th><th>{t('apply.contact')}</th><th>{t('apply.category')}</th><th>{t('admin.when')}</th><th /></tr></thead>
+      <tbody>{rows?.map((a: any) => (
+        <tr key={a.id}><td>{a.id}</td><td>{a.company_name}</td>
+          <td>{a.contact_name}<div className="muted small">{a.phone}{a.email && ` · ${a.email}`}</div></td>
+          <td>{a.category}{a.comment && <div className="muted small" style={{ whiteSpace: 'pre-wrap', maxWidth: 320 }}>{a.comment}</div>}</td>
+          <td>{new Date(a.created_at).toLocaleString()}</td>
+          <td><select aria-label={t('apply.company')} value={a.status} onChange={async (e) => { await api(`/admin-api/seller-applications/${a.id}`, { method: 'PATCH', body: { status: e.target.value } }); load(); }}>
+            {['new', 'in_progress', 'approved', 'rejected'].map((s) => <option key={s} value={s}>{t(`app.status.${s}`)}</option>)}</select></td></tr>))}</tbody></table></div>
   );
 }
 

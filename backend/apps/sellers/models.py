@@ -24,6 +24,7 @@ class Seller(models.Model):
     commission_override = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     rating = models.DecimalField(max_digits=3, decimal_places=2, default=Decimal('0'))
     identity_verified = models.BooleanField(default=False)
+    approved_at = models.DateTimeField(null=True, blank=True)   # staff confirmed this seller is genuinely BMG's
     created_at = models.DateTimeField(auto_now_add=True)
 
     def commission_percent(self):
@@ -33,6 +34,14 @@ class Seller(models.Model):
         if self.commission_level_id:
             return self.commission_level.percent
         return Decimal(str(Setting.get('default_commission_percent')))
+
+    def recompute_rating(self):
+        """Average of visible reviews; with no reviews the staff-set rating stays."""
+        from django.db.models import Avg
+        avg = self.reviews.filter(hidden=False).aggregate(a=Avg('rating'))['a']
+        if avg is not None:
+            self.rating = Decimal(str(avg)).quantize(Decimal('0.01'))
+            self.save(update_fields=['rating'])
 
     @property
     def is_approved(self):
@@ -61,3 +70,24 @@ class DeliveryRule(models.Model):
 
     class Meta:
         unique_together = [('seller', 'region')]
+
+
+class SellerApplication(models.Model):
+    """"Become a seller" request from the public form. Staff review it; approving it is a record, the account is still
+    created by the person signing in (accounts keep their own role/registration flow)."""
+    class Status(models.TextChoices):
+        NEW = 'new', 'New'
+        IN_PROGRESS = 'in_progress', 'In progress'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+
+    company_name = models.CharField(max_length=200)
+    contact_name = models.CharField(max_length=120)
+    phone = models.CharField(max_length=20)
+    email = models.EmailField(blank=True)
+    category = models.CharField(max_length=120)
+    comment = models.TextField(max_length=2000, blank=True)
+    privacy_accepted_at = models.DateTimeField()
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.NEW, db_index=True)
+    language = models.CharField(max_length=2, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)

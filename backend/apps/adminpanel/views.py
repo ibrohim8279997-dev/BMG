@@ -9,6 +9,7 @@ from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Count, Sum
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from rest_framework.permissions import AllowAny
@@ -26,7 +27,7 @@ from apps.core.permissions import IsAdminSession, ip_allowed
 from apps.core.utils import client_ip, throttle
 from apps.orders import services as osvc
 from apps.orders.models import Order, PayoutRequest, SellerLedger
-from apps.sellers.models import CommissionLevel, Seller
+from apps.sellers.models import CommissionLevel, Seller, SellerApplication
 from apps.support.models import Complaint
 
 MAX_FAILS = 5
@@ -142,6 +143,10 @@ class SellerDetail(AdminBase):
                 return Response({'error': 'invalid_request'}, status=400)
             if d['status'] == 'approved' and Setting.get('seller_identity_check') and not s.identity_verified:
                 return Response({'error': 'identity_not_verified'}, status=400)
+            if d['status'] == 'approved' and s.status != 'approved':
+                s.approved_at = timezone.now()
+            elif d['status'] != 'approved':
+                s.approved_at = None
             s.status = d['status']
         try:
             if 'commission_override' in d:
@@ -240,6 +245,31 @@ class StaffUsers(AdminBase):
                          'backup_codes': codes}, status=201)
 
 
+class Applications(AdminBase):
+    required_perm = 'sellers'
+
+    def get(self, request):
+        qs = SellerApplication.objects.order_by('-id')
+        if request.query_params.get('status') in SellerApplication.Status.values:
+            qs = qs.filter(status=request.query_params['status'])
+        return Response([{'id': a.id, 'company_name': a.company_name, 'contact_name': a.contact_name, 'phone': a.phone,
+                          'email': a.email, 'category': a.category, 'comment': a.comment, 'status': a.status,
+                          'language': a.language, 'created_at': a.created_at} for a in qs[:200]])
+
+
+class ApplicationDetail(AdminBase):
+    required_perm = 'sellers'
+
+    def patch(self, request, pk):
+        a = get_object_or_404(SellerApplication, pk=pk)
+        if request.data.get('status') not in SellerApplication.Status.values:
+            return Response({'error': 'invalid_request'}, status=400)
+        a.status = request.data['status']
+        a.save(update_fields=['status'])
+        audit(request, 'seller_application_updated', object_type='seller_application', object_id=a.id)
+        return Response({'ok': True})
+
+
 class Complaints(AdminBase):
     required_perm = 'support'
 
@@ -278,7 +308,8 @@ class Audit(AdminBase):
 
 SETTING_TYPES = {'prepayment_percent': (int, float), 'prepayment_min_order_sum': (int, float),
                  'prepayment_cash_percent': (int, float), 'seller_identity_check': (bool,),
-                 'default_commission_percent': (int, float), 'large_object_area': (int, float)}
+                 'default_commission_percent': (int, float), 'large_object_area': (int, float),
+                 'bypass_check_days': (int,), 'support_phone': (str,), 'support_telegram': (str,), 'support_email': (str,), 'tax_accounting_enabled': (bool,), 'vat_rate': (int, float)}
 
 
 class Settings(AdminBase):
@@ -292,7 +323,10 @@ class Settings(AdminBase):
             types = SETTING_TYPES.get(k)
             if not types or not isinstance(v, types) or (types != (bool,) and isinstance(v, bool)):
                 return Response({'error': 'invalid_request', 'field': k}, status=400)
-            if types != (bool,) and not 0 <= v <= (100 if 'percent' in k else 10**12):
+            if types == (str,):
+                if len(v) > 100:
+                    return Response({'error': 'invalid_request', 'field': k}, status=400)
+            elif types != (bool,) and not 0 <= v <= (100 if 'percent' in k or k == 'vat_rate' else 10**12):
                 return Response({'error': 'invalid_request', 'field': k}, status=400)
         for k, v in request.data.items():
             Setting.objects.update_or_create(key=k, defaults={'value': v})
@@ -406,3 +440,45 @@ class AdminNorms(AdminBase):
             n.reviewed = bool(request.data['reviewed'])
         n.save()
         return Response({'ok': True})
+
+
+class AdminCategoryDescribe(AdminBase):
+    """AI drafts the 3-language description; it stays hidden (reviewed=False) until staff approves it."""
+    required_perm = 'catalog'
+
+    def post(self, request, slug):
+        from apps.ai import service as ai
+        c = get_object_or_404(Category, slug=slug)
+        try:
+            d = ai.describe_category({'uz': c.name_uz, 'ru': c.name_ru, 'en': c.name_en}, user=request.user)
+        except ai.AIUnavailable:
+            return Response({'error': 'ai_unavailable'}, status=503)
+        except (ValueError, KeyError):
+            return Response({'error': 'invalid_request'}, status=502)
+        c.description_uz, c.description_ru, c.description_en = d['uz'], d['ru'], d['en']
+        c.description_reviewed = False
+        c.save()
+        audit(request, 'category_described_ai', object_type='category', object_id=c.id)
+        return Response({**d, 'reviewed': False})
+
+
+class AdminCategoryText(AdminBase):
+    """Staff reads, edits and approves the description. Only reviewed text is ever shown publicly."""
+    required_perm = 'catalog'
+
+    def get(self, request, slug):
+        c = get_object_or_404(Category, slug=slug)
+        return Response({'uz': c.description_uz, 'ru': c.description_ru, 'en': c.description_en,
+                         'reviewed': c.description_reviewed})
+
+    def patch(self, request, slug):
+        c = get_object_or_404(Category, slug=slug)
+        for l in ('uz', 'ru', 'en'):
+            if l in request.data:
+                setattr(c, f'description_{l}', str(request.data[l])[:1500])
+                c.description_reviewed = False       # any edit needs a fresh approval
+        if 'reviewed' in request.data:
+            c.description_reviewed = bool(request.data['reviewed']) and bool(c.description_ru or c.description_en)
+        c.save()
+        audit(request, 'category_text_updated', object_type='category', object_id=c.id, reviewed=c.description_reviewed)
+        return Response({'reviewed': c.description_reviewed})
