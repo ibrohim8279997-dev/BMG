@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ErrorText } from '@/components/Bits';
 import { Accounting, VatMeter } from '@/components/AdminAccounting';
+import { Crm } from '@/components/AdminCrm';
 import { Analytics, Content, Flags, Model, Quality, Reports, ReviewsMod } from '@/components/AdminReports';
 import Icon from '@/components/Icon';
 import { useLang, useT } from '@/components/Providers';
@@ -51,7 +52,7 @@ const GROUPS: [string, Nav[]][] = [
   ['money', [['orders', 'orders', 'box'], ['payouts', 'finance', 'card'], ['analytics', 'finance', 'chart'], ['reports', 'finance', 'file'], ['model', 'finance', 'calc']]],
   ['accounting', [['accounting', 'accounting', 'book']]],
   ['support', [['complaints', 'support', 'chat'], ['reviews', 'support', 'star'], ['content', 'catalog', 'file']]],
-  ['system', [['settings', 'settings', 'gear'], ['roles', 'roles', 'shield'], ['audit', 'audit', 'shield']]],
+  ['system', [['settings', 'settings', 'gear'], ['crm', 'settings', 'arrow'], ['roles', 'roles', 'shield'], ['audit', 'audit', 'shield']]],
 ];
 
 function badges(ov: any): Record<string, number> {
@@ -125,6 +126,7 @@ function Panel({ me, onLogout, t }: { me: any; onLogout: () => void; t: (k: stri
         {tab === 'content' && <Content t={t} />}
         {tab === 'accounting' && <Accounting t={t} />}
         {tab === 'model' && <Model t={t} />}
+        {tab === 'crm' && <Crm t={t} />}
       </section>
     </div>
   );

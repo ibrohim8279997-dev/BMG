@@ -20,7 +20,7 @@ INSTALLED_APPS = [
     'apps.core', 'apps.accounts', 'apps.audit', 'apps.uploads', 'apps.sellers',
     'apps.catalog', 'apps.ai', 'apps.calculator', 'apps.payments', 'apps.orders',
     'apps.support',
-    'apps.accounting', 'apps.adminpanel',
+    'apps.accounting', 'apps.crm', 'apps.adminpanel',
 ]
 
 MIDDLEWARE = [
@@ -91,6 +91,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '120/min', 'user': '300/min', 'login_code': '10/hour', 'login_verify': '30/hour',
         'ai': '20/min', 'calc_preview': '30/min', 'apply': '10/hour', 'admin_login': '10/hour', 'reveal': '30/hour', 'upload': '30/hour', 'card': '60/hour',
+        'crm_read': env('CRM_READ_RATE', default='120/min'),
     },
     'NUM_PROXIES': env.int('NUM_PROXIES', default=0),  # number of reverse proxies in front
 }
@@ -131,6 +132,15 @@ CLICK_SECRET_KEY = env('CLICK_SECRET_KEY', default='')
 CLICK_ALLOWED_IPS = env.list('CLICK_ALLOWED_IPS', default=[])  # required in production
 SITE_URL = env('SITE_URL', default='http://localhost:3000')
 
+# --- Nexio CRM integration (keys only from env). Push: order events -> CRM; pull: read-only API for the CRM.
+CRM_BASE_URL = env('CRM_BASE_URL', default='')               # https://crm.example.uz (empty = nothing is sent)
+CRM_API_KEY = env('CRM_API_KEY', default='')                 # nxk_... created in the CRM, scope crm.write
+CRM_WEBHOOK_SECRET = env('CRM_WEBHOOK_SECRET', default='')   # HMAC-SHA256 signing secret
+CRM_HTTP_TIMEOUT = env.float('CRM_HTTP_TIMEOUT', default=15)
+BMG_CRM_READ_KEY = env('BMG_CRM_READ_KEY', default='')       # the CRM's read-only key for /api/crm/v1 (empty = off)
+CRM_READ_ALLOWED_IPS = env.list('CRM_READ_ALLOWED_IPS', default=[])   # empty = any IP (the key is still required)
+CRM_READ_REQUIRE_HTTPS = env.bool('CRM_READ_REQUIRE_HTTPS', default=True)
+
 # --- Admin panel
 ADMIN_ALLOWED_IPS = env.list('ADMIN_ALLOWED_IPS', default=[])  # empty = deny (allow all only in DEBUG)
 ADMIN_SESSION_SECONDS = env.int('ADMIN_SESSION_SECONDS', default=7200)
@@ -167,6 +177,7 @@ LOGGING = {
         'console': {'class': 'logging.StreamHandler', 'formatter': 'std'},
         'payments': {'class': 'logging.FileHandler', 'filename': str(LOG_DIR / 'payments.log'), 'formatter': 'std'},
     },
-    'loggers': {'bmg.payments': {'handlers': ['payments', 'console'], 'level': 'INFO', 'propagate': False}},
+    'loggers': {'bmg.payments': {'handlers': ['payments', 'console'], 'level': 'INFO', 'propagate': False},
+                'bmg.crm': {'handlers': ['console'], 'level': 'INFO', 'propagate': False}},
     'root': {'handlers': ['console'], 'level': 'WARNING'},
 }

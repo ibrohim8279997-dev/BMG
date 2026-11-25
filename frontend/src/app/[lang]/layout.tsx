@@ -52,7 +52,9 @@ export default async function RootLayout({ children, params }: { children: React
         <meta name="color-scheme" content="light dark" />
         <meta name="theme-color" content="#f3f0ea" media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content="#11100d" media="(prefers-color-scheme: dark)" />
-        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeInit + modeInit }} />
+        {/* Browsers hide the nonce attribute from the DOM after load (it reads back as ""), so React would flag a
+            server/client attribute mismatch here; the nonce still works, so suppress the warning on this element only. */}
+        <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: themeInit + modeInit }} />
       </head>
       <body>
         <Providers lang={lang} dict={dict}>

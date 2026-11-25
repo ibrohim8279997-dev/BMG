@@ -3,9 +3,11 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import transaction
 from django.db.models import F
+from django.utils import timezone
 
 from apps.accounting import deals
 from apps.catalog.models import Offer
+from apps.crm import events as crm
 from apps.core.models import Setting
 from apps.payments import wallet
 
@@ -76,7 +78,8 @@ def create_order(user, city, mode, buyer=None):
     order = Order.objects.create(
         client=user, city=city, payment_mode=mode, goods_total=q(goods), delivery_total=q(delivery), total=total,
         prepayment=prepay, amount_due_online=due, commission_total=sum((i['commission_amount'] for i in items), Decimal('0')),
-        status='pending_payment' if due > 0 else 'paid', buyer_type=btype, buyer_inn=binn, buyer_name=bname)
+        status='pending_payment' if due > 0 else 'paid', buyer_type=btype, buyer_inn=binn, buyer_name=bname,
+        paid_at=None if due > 0 else timezone.now())
     for i in items:
         o = i['offer']
         o.stock -= i['qty']
@@ -85,6 +88,7 @@ def create_order(user, city, mode, buyer=None):
     CartItem.objects.filter(user=user).delete()
     if order.status == 'paid':
         deals.create_deals(order)
+        crm.emit(order, 'order.created')     # nothing to pay online: the order is placed (confirmed) right away
     return order
 
 
@@ -99,8 +103,11 @@ def pay_order(user, order_id):
         raise OrderError('insufficient_funds')
     order.amount_paid = order.amount_due_online
     order.status = 'paid'
-    order.save(update_fields=['amount_paid', 'status'])
+    order.paid_at = timezone.now()
+    order.save(update_fields=['amount_paid', 'status', 'paid_at'])
     deals.create_deals(order)      # amounts are fixed now, with the settings in force today
+    crm.emit(order, 'order.created')   # placed = paid; the CRM opens the deal
+    crm.emit(order, 'order.paid')
     return order
 
 
@@ -141,7 +148,11 @@ def fulfill(order_id, seller):
             i.save(update_fields=['credited'])
     if all(i.fulfilled for i in order.items.all()):
         order.status = 'completed'
-        order.save(update_fields=['status'])
+        order.completed_at = timezone.now()
+        order.save(update_fields=['status', 'completed_at'])
+        crm.emit(order, 'order.completed')
+    else:
+        crm.emit(order, 'order.updated')     # one of several sellers delivered
     return order
 
 
@@ -183,8 +194,14 @@ def refund_order(order_id, fault, staff_user):
             if i.offer_id:
                 Offer.objects.filter(pk=i.offer_id).update(stock=F('stock') + i.qty)
     order.status = 'cancelled'
-    order.save(update_fields=['status'])
+    order.cancelled_at = timezone.now()
+    order.cancel_reason = f'{fault}_fault'
+    order.save(update_fields=['status', 'cancelled_at', 'cancel_reason'])
     deals.refund(order, staff_user)    # storno for every posted document, nothing deleted
-    return Refund.objects.create(order=order, fault=fault, amount=amount, due_by=due, reserve_until=reserve,
-                                 processed_by=staff_user)
+    refund = Refund.objects.create(order=order, fault=fault, amount=amount, due_by=due, reserve_until=reserve,
+                                   processed_by=staff_user)
+    if amount > 0:
+        crm.emit(order, 'order.refunded')
+    crm.emit(order, 'order.cancelled')   # closes the CRM deal
+    return refund
 

@@ -6,6 +6,7 @@ card_invalid
 cart_empty
 consent_required
 contract_requisites_missing
+crm_not_configured
 document_mismatch
 email_not_found
 empty_file

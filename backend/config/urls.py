@@ -16,6 +16,7 @@ urlpatterns = [
     path('api/v1/', include('apps.accounting.urls')),
     path('api/v1/legal/<slug:slug>', core.LegalView.as_view()),
     path('api/v1/config', core.PublicConfig.as_view()),
+    path('api/crm/v1/', include('apps.crm.urls')),
     path('admin-api/', include('apps.adminpanel.urls')),
     path('sitemap.xml', core.sitemap),
     path('robots.txt', core.robots),

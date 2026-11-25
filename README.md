@@ -69,6 +69,14 @@ NODE_PATH=<папка с playwright> node frontend/e2e/smoke.cjs   # сквоз�
 
 **Осознанно не сделано** (нужны внешние ключи, юрист, решение владельца или инструменты, которых здесь нет): нативное Android-приложение на Kotlin (в среде нет Android SDK; PWA закрывает установку на телефон); проверка с настоящими ключами Click, Telegram, Google, ИИ; выплаты через API банка (есть CSV-реестр для банка); проверка на реальных устройствах; юридические тексты (ЧЕРНОВИК); SoliqOnline/ЭЦП; список реальных поисковых запросов для SEO-страниц (нужны данные Wordstat / Search Console). Возвраты по вине BMG зачисляются на баланс сразу, то есть раньше срока 3+1 день.
 
+## Интеграция с Nexio CRM (2026-11-25)
+BMG — источник истины, CRM только читает. Ключи только в `.env`: `CRM_BASE_URL`, `CRM_API_KEY` (nxk_…), `CRM_WEBHOOK_SECRET`, `BMG_CRM_READ_KEY`, `CRM_READ_ALLOWED_IPS`.
+- **BMG → CRM (push)**: `POST {CRM_BASE_URL}/api/v1/integrations/bmg/events`, подпись `X-BMG-Signature: sha256=HMAC(secret, timestamp + "." + body)`. События `order.created` (оплачен/подтверждён), `order.paid`, `order.updated` (доставил один из нескольких продавцов), `order.completed`, `order.refunded`, `order.cancelled` (после любого возврата — закрывает сделку). В `data` всегда полный заказ; `external_order_id` (`ord_<uuid>`) не меняется, `order_version` +1 на каждое событие.
+- **Outbox**: событие пишется в той же транзакции, что и заказ (`apps/crm`), отправляет воркер: `python manage.py crm_outbox` (постоянно; systemd/supervisor) или `crm_outbox --once` из cron. 2xx/409 — доставлено; 5xx/429/408/таймаут — повтор через 1м, 5м, 15м, 1ч, 6ч, 24ч (±10%, `Retry-After` учитывается); прочие 4xx — «ошибка» сразу. События одного заказа уходят строго по версии: пока предыдущее не доставлено, следующие ждут. Только https (вне DEBUG).
+- **CRM → BMG (pull)**: `/api/crm/v1/orders?updated_since=&cursor=&limit=`, `/orders/{external_order_id}`, `/payments`, `/refunds`, `/settlements` (`from`, `to`, `cursor`), `/reports/daily?date=`. `Authorization: Bearer <BMG_CRM_READ_KEY>`, лимит `CRM_READ_RATE` (120/мин), 429 с `Retry-After`.
+- **Суперадминка → «Интеграция с CRM»**: адрес, ключ (скрыт), секрет задан/нет, кнопка «Отправить тестовое событие», последние 100 отправок, «Отправить снова». Телефоны, ИНН и e-mail в журналах маскируются.
+- Допущения: цены продавцов включают НДС (`vat_included: true`); скидок в BMG нет (`discount` = 0); оплата `click` = онлайн через баланс, `cash` = предоплата онлайн + остаток наличными продавцу; адрес доставки — только город. С настоящей CRM не проверялось (в тестах HTTP подменён).
+
 ## Безопасность (что и чем проверено)
 | Требование | Реализация | Тест |
 |---|---|---|

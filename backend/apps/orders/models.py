@@ -1,7 +1,14 @@
 from decimal import Decimal
 
+import uuid
+
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
+
+
+def new_external_id():
+    return f'ord_{uuid.uuid4().hex}'
 
 
 class CartItem(models.Model):
@@ -35,6 +42,18 @@ class Order(models.Model):
     buyer_inn = models.CharField(max_length=9, blank=True)               # legal entity only
     buyer_name = models.CharField(max_length=200, blank=True)            # legal entity only
     created_at = models.DateTimeField(auto_now_add=True)
+    # CRM integration: the id the CRM knows the order by. Generated once, never changed or reused.
+    external_id = models.CharField(max_length=40, unique=True, default=new_external_id, editable=False)
+    version = models.PositiveIntegerField(default=0)                    # +1 on every change sent to the CRM
+    updated_at = models.DateTimeField(default=timezone.now, db_index=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancel_reason = models.CharField(max_length=40, blank=True)
+
+    @property
+    def number(self):
+        return f'BMG-{self.pk:06d}'
 
 
 class OrderItem(models.Model):
