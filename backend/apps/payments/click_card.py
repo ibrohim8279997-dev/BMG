@@ -5,6 +5,7 @@ The card number/expiry pass through to Click and are never stored or logged."""
 import hashlib
 import logging
 import time
+from decimal import Decimal
 
 import requests
 from django.conf import settings
@@ -65,7 +66,8 @@ def verify_token(token: str, sms_code: str) -> str:
 
 
 def charge(token: str, amount, ref: str) -> str:
-    d = _call('POST', '/card_token/payment', {'service_id': _sid(), 'card_token': token, 'amount': float(amount),
+    amount = float(Decimal(str(amount)).quantize(Decimal('0.01')))    # Click wants a JSON number; round first
+    d = _call('POST', '/card_token/payment', {'service_id': _sid(), 'card_token': token, 'amount': amount,
                                               'transaction_parameter': ref}, 'payment')
     return str(d.get('payment_id', ''))
 

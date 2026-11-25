@@ -87,9 +87,10 @@ class LoginApi(Base):
         self.assertEqual(r.status_code, 422)
 
     def test_unlinked_phone_gets_bot_link(self):
-        r, _ = self.request_code()
-        self.assertEqual(r.status_code, 409)
+        r, sm = self.request_code()
+        self.assertEqual(r.status_code, 200)                       # same answer as a linked number: no oracle
         self.assertIn('t.me/bmgbot', r.json()['bot_url'])
+        self.assertFalse(sm.called)                                 # but no code is issued or sent
 
     def test_invalid_phone(self):
         r, _ = self.request_code('123')
@@ -102,6 +103,31 @@ class LoginApi(Base):
                                                   'accept_privacy': True, 'accept_terms': True}, format='json')
         self.assertEqual(r.status_code, 400)
         self.assertFalse(User.objects.filter(phone=P).exists())
+
+    def test_unregistered_wrong_code_looks_like_registered(self):
+        self.link()
+        self.request_code()
+        # no role, wrong code: invalid_code (not registration_required) - existence of the account is not revealed
+        r = self.api.post('/api/v1/auth/verify', {'phone': P, 'code': '000000'}, format='json')
+        self.assertEqual((r.status_code, r.json()['error']), (400, 'invalid_code'))
+
+    @override_settings(LOGIN_FAILS_PER_IDENTIFIER_PER_DAY=3, LOGIN_CODE_MAX_ATTEMPTS=5)
+    def test_failures_lock_the_number_across_fresh_codes(self):
+        self.link()
+        for _ in range(2):                  # two codes, failures accumulate across both
+            self.request_code()
+            self.api.post('/api/v1/auth/verify', {'phone': P, 'code': '000000'}, format='json')
+            self.api.post('/api/v1/auth/verify', {'phone': P, 'code': '000001'}, format='json')
+        r, sm = self.request_code()
+        self.assertEqual(r.status_code, 429)  # locked for the day: no new code either
+        self.assertFalse(verify_code(P, '000000'))
+
+    def test_attempt_counter_cannot_be_exceeded(self):
+        c = issue_code(P, None)
+        for _ in range(5):
+            self.assertFalse(verify_code(P, '999999' if c != '999999' else '999998'))
+        self.assertFalse(verify_code(P, c))  # the 6th attempt is refused even with the right code
+        self.assertEqual(TelegramLoginCode.objects.get().attempts, 5)
 
     def test_staff_cannot_use_client_login(self):
         User.objects.create(username='boss', phone=P, is_staff=True, role='staff')

@@ -100,6 +100,13 @@ def validate(upload, category: str):
     if upload.size > LIMITS[category]:
         raise UploadError('file_too_large')
     data = upload.read(LIMITS[category] + 1)
+    return validate_bytes(data, category)
+
+
+def validate_bytes(data: bytes, category: str):
+    """Same checks for bytes that did not come from a form upload (e.g. a photo downloaded by the importer)."""
+    if category not in LIMITS:
+        raise UploadError('invalid_file')
     if len(data) > LIMITS[category]:
         raise UploadError('file_too_large')
     kind = detect(data)

@@ -109,9 +109,12 @@ def decode_cursor(v):
     if not v:
         return None
     try:
-        return json.loads(base64.urlsafe_b64decode(v + '=' * (-len(v) % 4)))
+        c = json.loads(base64.urlsafe_b64decode(v + '=' * (-len(v) % 4)))
     except (ValueError, TypeError):
         raise BadParam('cursor')
+    if not isinstance(c, dict):          # e.g. a list or a number: a 400, not a 500
+        raise BadParam('cursor')
+    return c
 
 
 def id_page(qs, p, field='created_at'):

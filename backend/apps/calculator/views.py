@@ -100,9 +100,10 @@ class Calculate(APIView):
     def post(self, request, pk):
         obj = get_object_or_404(ObjectRequest, pk=pk, user=request.user)   # only own objects
         zones = request.data.get('zones') or list(ZONES)
-        if not isinstance(zones, list) or not set(zones) <= set(ZONES):
+        if not isinstance(zones, list) or len(zones) > len(ZONES) * 4 or not all(isinstance(z, str) for z in zones) \
+                or not set(zones) <= set(ZONES):
             return Response({'error': 'invalid_request'}, status=400)
-        try:
-            return Response(calculate(obj, zones, request.user))
+        try:   # duplicates removed: each zone is calculated once (a long list must not multiply the DB work)
+            return Response(calculate(obj, list(dict.fromkeys(zones)), request.user))
         except NormsUnavailable:
             return Response({'error': 'norms_unavailable'}, status=503)

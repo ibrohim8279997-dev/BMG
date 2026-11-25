@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Sum
 from django.utils import timezone
 
 from apps.accounting import deals
@@ -30,6 +30,36 @@ class OrderError(Exception):
         super().__init__(code)
 
 
+def expire_unpaid(now=None):
+    """Unpaid orders reserve stock; after `order_payment_ttl_minutes` they are cancelled and the stock returns.
+    Called lazily before every new order and by `manage.py expire_unpaid_orders` (cron)."""
+    ttl = int(Setting.get('order_payment_ttl_minutes') or 0)
+    if ttl <= 0:
+        return 0
+    cutoff = (now or timezone.now()) - timedelta(minutes=ttl)
+    n = 0
+    for pk in list(Order.objects.filter(status='pending_payment', created_at__lt=cutoff).values_list('pk', flat=True)[:500]):
+        n += cancel_unpaid(pk, reason='payment_timeout')
+    return n
+
+
+@transaction.atomic
+def cancel_unpaid(order_id, user=None, reason='client_cancelled'):
+    """Cancel a pending_payment order and return its stock. Returns 1 if cancelled, 0 if it was not pending."""
+    qs = Order.objects.select_for_update().filter(pk=order_id)
+    if user is not None:
+        qs = qs.filter(client=user)
+    order = qs.first()
+    if order is None or order.status != 'pending_payment':
+        return 0
+    for i in order.items.all():
+        if i.offer_id:
+            Offer.objects.filter(pk=i.offer_id).update(stock=F('stock') + i.qty)
+    order.status, order.cancelled_at, order.cancel_reason = 'cancelled', timezone.now(), reason
+    order.save(update_fields=['status', 'cancelled_at', 'cancel_reason'])
+    return 1
+
+
 @transaction.atomic
 def create_order(user, city, mode, buyer=None):
     """Everything (prices, stock, delivery, fee) is computed here from the database, never from the client.
@@ -43,6 +73,10 @@ def create_order(user, city, mode, buyer=None):
         raise OrderError('invalid_buyer')
     if btype == 'individual':
         binn = bname = ''
+    expire_unpaid()
+    cap = int(Setting.get('max_open_unpaid_orders') or 0)
+    if cap and Order.objects.filter(client=user, status='pending_payment').count() >= cap:
+        raise OrderError('too_many_unpaid_orders')
     cart = list(CartItem.objects.filter(user=user).order_by('offer_id'))
     if not cart:
         raise OrderError('cart_empty')
@@ -117,9 +151,58 @@ def seller_gross(order, seller):
         sum((i.commission_amount for i in items), Decimal('0')), items
 
 
+def locked_balance(seller_id):
+    """Lock the seller row (serialises every payout path), then return (ledger total, pending requests).
+    Must be called inside a transaction."""
+    from apps.sellers.models import Seller
+    Seller.objects.select_for_update().only('pk').get(pk=seller_id)
+    total = SellerLedger.objects.filter(seller_id=seller_id).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+    from .models import PayoutRequest
+    pending = PayoutRequest.objects.filter(seller_id=seller_id, status='requested').aggregate(s=Sum('amount'))['s'] \
+        or Decimal('0')
+    return total, pending
+
+
+@transaction.atomic
+def release_payable(order_id, seller_id):
+    """Credit the seller's payable for a delivered online order. Only called after the client confirmed receipt or
+    staff confirmed the deal - never on the seller's own word. Idempotent (OrderItem.credited)."""
+    order = Order.objects.select_for_update().get(pk=order_id)
+    if order.payment_mode != 'full' or order.status not in ('paid', 'completed'):
+        return None
+    items = [i for i in order.items.all() if i.seller_id == seller_id]
+    if not items or not all(i.fulfilled for i in items) or any(i.credited for i in items):
+        return None
+    seller = items[0].seller
+    deal = deals.deal_for(order, seller)
+    gross = sum((i.line_total + i.delivery_cost for i in items), Decimal('0'))
+    commission = sum((i.commission_amount for i in items), Decimal('0'))
+    payable = Decimal(deal.payout) if deal else q(gross - commission)   # the deal's fixed payout (VAT included)
+    entry = SellerLedger.objects.create(seller=seller, kind='sale', amount=payable, order=order)
+    for i in items:
+        i.credited = True
+        i.save(update_fields=['credited'])
+    return entry
+
+
+@transaction.atomic
+def confirm_receipt(order_id, user):
+    """The client confirms that the delivered goods were received: releases each delivered seller's payable."""
+    order = Order.objects.select_for_update().get(pk=order_id, client=user)
+    if order.status not in ('paid', 'completed'):
+        raise OrderError('invalid_state')
+    sellers = {i.seller_id for i in order.items.all() if i.fulfilled}
+    if not sellers:
+        raise OrderError('not_delivered')
+    for s_id in sorted(sellers):
+        release_payable(order.id, s_id)
+    return order
+
+
 @transaction.atomic
 def fulfill(order_id, seller):
-    """Seller marks own items delivered. Online orders credit the payable; cash orders book the cash commission."""
+    """Seller marks own items delivered. Online orders: the payable is credited only after the client confirms
+    receipt or staff confirm the deal (release_payable). Cash orders book the cash commission."""
     order = Order.objects.select_for_update().get(pk=order_id)
     if order.status != 'paid':
         raise OrderError('invalid_state')
@@ -129,13 +212,7 @@ def fulfill(order_id, seller):
     for i in items:
         i.fulfilled = True
         i.save(update_fields=['fulfilled'])
-    deal = deals.mark_delivered(order, seller)
-    if order.payment_mode == 'full' and not any(i.credited for i in items):
-        payable = Decimal(deal.payout) if deal else q(gross - commission)   # the deal's fixed payout (VAT included)
-        SellerLedger.objects.create(seller=seller, kind='sale', amount=payable, order=order)
-        for i in items:
-            i.credited = True
-            i.save(update_fields=['credited'])
+    deals.mark_delivered(order, seller)
     if order.payment_mode == 'cash' and not any(i.credited for i in items):
         # cash goes straight to the seller; BMG's cash commission (a setting, 0 by default) becomes the seller's debt,
         # netted from future online payouts. Delivery is never commissioned.
@@ -182,11 +259,12 @@ def refund_order(order_id, fault, staff_user):
         today = date.today()
         due, reserve = add_business_days(today, 3), add_business_days(today, 4)
     if fault == 'seller':
-        for s_id in {i.seller_id for i in order.items.all()}:
-            seller = next(i.seller for i in order.items.all() if i.seller_id == s_id)
-            gross, commission, items = seller_gross(order, seller)
-            if any(i.credited for i in items):   # payout already credited: claw back from future payouts
-                SellerLedger.objects.create(seller=seller, kind='reversal', amount=-q(gross), order=order)
+        for s_id in sorted({i.seller_id for i in order.items.all()}):
+            # claw back exactly what was credited to this seller for this order (the deal payout), not the gross
+            credited = SellerLedger.objects.filter(seller_id=s_id, order=order, kind='sale') \
+                .aggregate(s=Sum('amount'))['s'] or Decimal('0')
+            if credited > 0:
+                SellerLedger.objects.create(seller_id=s_id, kind='reversal', amount=-q(credited), order=order)
     if amount > 0:
         wallet.change(order.client, amount, 'refund', order_id=order.id, ref=fault)
     if not any(i.fulfilled for i in order.items.all()):

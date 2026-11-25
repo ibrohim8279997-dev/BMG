@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import login, logout
+from django.core.cache import cache
 from django.db import transaction
 from django.middleware.csrf import get_token
 from django.utils import timezone
@@ -17,7 +18,7 @@ from apps.core.utils import client_ip, throttle
 from . import captcha, google, telegram
 from .models import TelegramLink, User
 from .phone import normalize_phone
-from .services import LoginError, issue_code, peek_valid_code, verify_code
+from .services import MAX_REQUESTS_PER_HOUR_PHONE, LoginError, issue_code, verify_code
 
 
 def user_payload(u):
@@ -86,19 +87,22 @@ class RequestCodeView(APIView):
         phone = normalize_phone(request.data.get('phone', ''))
         if not phone:
             return Response({'error': 'invalid_phone'}, status=400)
-        if not TelegramLink.objects.filter(phone=phone).exists():
-            bot = settings.TELEGRAM_BOT_USERNAME
-            if settings.DEBUG and not settings.TELEGRAM_BOT_TOKEN:
-                pass  # dev mode: allow unlinked phone, code returned below
-            else:
-                return Response({'error': 'telegram_not_linked',
-                                 'bot_url': f'https://t.me/{bot}' if bot else ''}, status=409)
+        bot = settings.TELEGRAM_BOT_USERNAME
+        # One answer whether or not the number is linked to the bot (no account-existence oracle). The page always
+        # shows the bot link: "no code? open the bot and share your number first".
+        data = {'ok': True, 'ttl': settings.LOGIN_CODE_TTL_SECONDS, 'bot_url': f'https://t.me/{bot}' if bot else ''}
+        key = 'reqcode:' + phone
+        cache.add(key, 0, 3600)
+        if cache.incr(key) > MAX_REQUESTS_PER_HOUR_PHONE:       # same limit for linked and unlinked numbers
+            return Response({'error': 'too_many_requests'}, status=429)
+        dev = settings.DEBUG and not settings.TELEGRAM_BOT_TOKEN
+        if not dev and not TelegramLink.objects.filter(phone=phone).exists():
+            return Response(data)
         try:
             code = issue_code(phone, client_ip(request))
         except LoginError:
             return Response({'error': 'too_many_requests'}, status=429)
         sent = telegram.send_login_code(phone, code)
-        data = {'ok': True, 'ttl': settings.LOGIN_CODE_TTL_SECONDS}
         if settings.DEBUG and not settings.TELEGRAM_BOT_TOKEN and not sent:
             data['dev_code'] = code  # DEV ONLY: no bot token configured
         return Response(data)
@@ -119,8 +123,9 @@ class VerifyView(APIView):
         user = User.objects.filter(phone=phone).first()
         ip = client_ip(request)
         if user is None:
-            # registration needs role + consents (+ captcha); check BEFORE consuming the code
-            if not peek_valid_code(phone):
+            # the code is checked first (same answer as for a registered number), then registration needs
+            # role + consents (+ captcha); the code is consumed only once everything is in place
+            if not verify_code(phone, code, consume=False):
                 return Response({'error': 'invalid_code'}, status=400)
             bad = registration_blocked(request, ip)
             if bad:

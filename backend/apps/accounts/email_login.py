@@ -35,21 +35,9 @@ def _live(email):
     return EmailLoginCode.objects.filter(email=email, used=False).order_by('-created_at').first()
 
 
-def peek_valid(email):
-    o = _live(email)
-    return bool(o and o.expires_at >= timezone.now() and o.attempts < settings.LOGIN_CODE_MAX_ATTEMPTS)
-
-
-def verify(email, code):
-    o = _live(email)
-    if not o or o.expires_at < timezone.now() or o.attempts >= settings.LOGIN_CODE_MAX_ATTEMPTS:
-        return False
-    o.attempts += 1
-    ok = hmac.compare_digest(o.code_hash, _hash(code))
-    if ok:
-        o.used = True
-    o.save(update_fields=['attempts', 'used'])
-    return ok
+def verify(email, code, consume=True):
+    from .services import check_code
+    return check_code(EmailLoginCode, _live(email), code, consume, email)
 
 
 class EmailRequestCodeView(APIView):
@@ -65,8 +53,10 @@ class EmailRequestCodeView(APIView):
         if domain_can_receive_mail(email) is False:
             return Response({'error': 'email_not_found'}, status=404)
         ip = client_ip(request)
+        from .services import identifier_locked
         recent = EmailLoginCode.objects.filter(created_at__gte=timezone.now() - timedelta(hours=1))
-        if recent.filter(email=email).count() >= MAX_PER_HOUR_EMAIL or (ip and recent.filter(ip=ip).count() >= MAX_PER_HOUR_IP):
+        if identifier_locked(email) or recent.filter(email=email).count() >= MAX_PER_HOUR_EMAIL \
+                or (ip and recent.filter(ip=ip).count() >= MAX_PER_HOUR_IP):
             return Response({'error': 'too_many_requests'}, status=429)
         code = f'{secrets.randbelow(10**6):06d}'
         try:
@@ -98,12 +88,12 @@ class EmailVerifyView(APIView):
         code = str(request.data.get('code', ''))
         if not email or not code:
             return Response({'error': 'invalid_request'}, status=400)
-        user = User.objects.filter(email__iexact=email, is_staff=False).first()
-        if user is None and User.objects.filter(email__iexact=email).exists():
-            return Response({'error': 'use_admin_login'}, status=403)
+        # Same answers for registered, unregistered and staff addresses until the code is proven: the code is checked
+        # first (it counts as an attempt), registration fields only after that, staff are refused in finish_login.
+        user = User.objects.filter(email__iexact=email).first()
         ip = client_ip(request)
         if user is None:
-            if not peek_valid(email):
+            if not verify(email, code, consume=False):
                 return Response({'error': 'invalid_code'}, status=400)
             bad = registration_blocked(request, ip)
             if bad:

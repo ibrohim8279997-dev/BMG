@@ -1,4 +1,5 @@
 """BMG settings. Everything environment-specific comes from env variables."""
+import sys
 from pathlib import Path
 
 import environ
@@ -24,6 +25,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'apps.core.middleware.TrustedProxyMiddleware',    # first: strips X-Forwarded-* unless the peer is a trusted proxy
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
@@ -74,7 +76,9 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'same-origin'
 X_FRAME_OPTIONS = 'DENY'
 SECURE_SSL_REDIRECT = env.bool('SSL_REDIRECT', default=False)
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')   # only reaches here from TRUSTED_PROXY_IPS
+# TCP peers allowed to pass X-Forwarded-* (the Next.js host). Requests from anywhere else lose those headers.
+TRUSTED_PROXY_IPS = env.list('TRUSTED_PROXY_IPS', default=['127.0.0.1', '::1'])
 SECURE_HSTS_SECONDS = 0 if DEBUG else 31536000
 DATA_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
@@ -91,12 +95,20 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '120/min', 'user': '300/min', 'login_code': '10/hour', 'login_verify': '30/hour',
         'ai': '20/min', 'calc_preview': '30/min', 'apply': '10/hour', 'admin_login': '10/hour', 'reveal': '30/hour', 'upload': '30/hour', 'card': '60/hour',
+        'import_view': '30/min',
         'crm_read': env('CRM_READ_RATE', default='120/min'),
     },
     'NUM_PROXIES': env.int('NUM_PROXIES', default=0),  # number of reverse proxies in front
 }
 CACHES = {'default': {'BACKEND': env('CACHE_BACKEND', default='django.core.cache.backends.locmem.LocMemCache'),
                       'LOCATION': env('CACHE_LOCATION', default='bmg')}}
+# Rate limits, login-code lockouts and the admin lockout live in this cache. A per-process memory cache multiplies
+# every limit by the number of workers and resets on restart, so production refuses to start with it
+# (ALLOW_LOCMEM_CACHE=1 only for a single-worker setup).
+TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
+if not DEBUG and not TESTING and 'locmem' in CACHES['default']['BACKEND'].lower() \
+        and not env.bool('ALLOW_LOCMEM_CACHE', default=False):
+    raise RuntimeError('Production needs a shared cache: set CACHE_BACKEND=django.core.cache.backends.redis.RedisCache')
 
 # --- Telegram (login only)
 TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN', default='')
@@ -105,6 +117,8 @@ TELEGRAM_WEBHOOK_SECRET = env('TELEGRAM_WEBHOOK_SECRET', default='')
 # Separate bot service (bot/) talks to /api/v1/bot/* with this shared secret; empty = bot API off
 BOT_API_SECRET = env('BOT_API_SECRET', default='')
 BOT_LOGIN_TTL_SECONDS = env.int('BOT_LOGIN_TTL_SECONDS', default=300)
+# TCP peers allowed to call /api/v1/bot/* (the bot's host; checked on REMOTE_ADDR, not X-Forwarded-For). Empty = any.
+BOT_API_ALLOWED_IPS = env.list('BOT_API_ALLOWED_IPS', default=['127.0.0.1', '::1'])
 # --- Google sign-in (off unless a client id is set)
 GOOGLE_CLIENT_ID = env('GOOGLE_CLIENT_ID', default='')
 # --- E-mail login (code sent by e-mail; console backend in dev)
@@ -122,6 +136,8 @@ TURNSTILE_SITE_KEY = env('TURNSTILE_SITE_KEY', default='')
 TURNSTILE_SECRET_KEY = env('TURNSTILE_SECRET_KEY', default='')
 LOGIN_CODE_TTL_SECONDS = env.int('LOGIN_CODE_TTL_SECONDS', default=150)
 LOGIN_CODE_MAX_ATTEMPTS = env.int('LOGIN_CODE_MAX_ATTEMPTS', default=5)
+# failed code checks per phone/e-mail per 24 h across all codes; then that identifier is locked for the day
+LOGIN_FAILS_PER_IDENTIFIER_PER_DAY = env.int('LOGIN_FAILS_PER_IDENTIFIER_PER_DAY', default=10)
 MAX_NEW_ACCOUNTS_PER_IP_PER_DAY = env.int('MAX_NEW_ACCOUNTS_PER_IP_PER_DAY', default=5)
 
 # --- Click (keys only from env)

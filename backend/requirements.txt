@@ -2,6 +2,7 @@ Django>=5.2,<6
 djangorestframework>=3.15
 django-environ>=0.11
 openpyxl>=3.1
+defusedxml>=0.7     # openpyxl uses it automatically: hardened XML parsing of uploaded .xlsx
 pyotp>=2.9
 Pillow>=10
 pypdf>=4

@@ -49,6 +49,10 @@ def suggest_mapping(headers):
     return mapping
 
 
+MAX_MONEY = Decimal(10) ** 12     # Offer.price / cost_price: max_digits=14, decimal_places=2
+MAX_STOCK = Decimal(10) ** 9      # Offer.stock: max_digits=12, decimal_places=3
+
+
 def to_decimal(v):
     if v is None or v == '':
         return None
@@ -87,21 +91,23 @@ def process(imp, data, user):
     by_slug = {c.slug: c for c in cats.values()}
     created = updated = ai_used = 0
     errors = []
+    product_ids = []
 
     def cell(r, f):
         i = m.get(f)
         return r[i] if i is not None and i < len(r) else None
 
-    for n, r in enumerate(rows[1:], start=2):
+    start = imp.header_row + 1
+    for n, r in enumerate(rows[start:], start=start + 1):
         if not any(c not in (None, '') for c in r):
             continue
         name = str(cell(r, 'name') or '').strip()[:200]
         price, stock = to_decimal(cell(r, 'price')), to_decimal(cell(r, 'stock'))
         if not name:
             errors.append({'row': n, 'error': 'name_required'}); continue
-        if price is None or price <= 0:
+        if price is None or price <= 0 or price >= MAX_MONEY:      # beyond the column: one bad row must not abort all
             errors.append({'row': n, 'error': 'price_invalid'}); continue
-        if stock is None or stock < 0:
+        if stock is None or stock < 0 or stock >= MAX_STOCK:
             errors.append({'row': n, 'error': 'stock_required'}); continue   # stock is mandatory
         cat = find_category(cell(r, 'category'), cats)
         if cat is None:
@@ -112,6 +118,7 @@ def process(imp, data, user):
             if cat is None:
                 errors.append({'row': n, 'error': 'category_required'}); continue
         cost = to_decimal(cell(r, 'cost_price'))
+        cost = cost if cost is not None and cost < MAX_MONEY else None
         product, _ = Product.objects.get_or_create(
             category=cat, name_key=name_key(name),
             defaults={'name': name, 'unit': str(cell(r, 'unit') or '')[:20]})
@@ -120,4 +127,7 @@ def process(imp, data, user):
             defaults={'price': price, 'stock': stock, 'cost_price': cost if cost and cost > 0 else None, 'active': True})
         created += was_created
         updated += not was_created
-    return {'created': created, 'updated': updated, 'errors': errors[:200], 'error_count': len(errors)}
+        product_ids.append(product.id)
+    return {'created': created, 'updated': updated, 'errors': errors[:200], 'error_count': len(errors),
+            'product_ids': list(dict.fromkeys(product_ids))}
+

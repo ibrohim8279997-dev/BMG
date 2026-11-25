@@ -324,6 +324,7 @@ class PullApi(CrmBase):
     def test_payments_refunds_settlements_pages(self):
         orders = [self.paid_order() for _ in range(3)]
         osvc.fulfill(orders[0].id, self.s)
+        osvc.confirm_receipt(orders[0].id, orders[0].client)
         osvc.refund_order(orders[1].id, 'bmg', None)
         today = timezone.localdate().isoformat()
         p1 = self.get(f'/api/crm/v1/payments?from={today}&to={today}&limit=2').json()

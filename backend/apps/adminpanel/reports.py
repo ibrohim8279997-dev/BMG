@@ -157,10 +157,14 @@ class AdminReviews(AdminBase):
 
 # ---- CSV exports (finance)
 
+FORMULA_START = ('=', '+', '-', '@', '\t', '\r', '\n')
+
+
 def safe(v):
-    """Spreadsheet formula injection guard: text that starts with = + - @ is prefixed with a quote."""
+    """Spreadsheet formula injection guard (OWASP): text that starts with = + - @ or a tab / CR / LF - also after
+    leading spaces - is prefixed with a quote."""
     s = '' if v is None else str(v)
-    return "'" + s if s[:1] in ('=', '+', '-', '@') else s
+    return "'" + s if s.lstrip(' ')[:1] in FORMULA_START else s
 
 
 EXPORTS = {

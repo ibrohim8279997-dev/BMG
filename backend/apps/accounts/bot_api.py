@@ -42,6 +42,11 @@ class BotView(APIView):
         super().initial(request, *args, **kwargs)
         expected = settings.BOT_API_SECRET
         got = request.headers.get('X-Bot-Secret', '')
+        # the secret can re-link any phone to a Telegram id, so the bot API is also limited to the bot's own host
+        allowed = settings.BOT_API_ALLOWED_IPS
+        if allowed and request.META.get('REMOTE_ADDR') not in allowed:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied()
         if not expected or not hmac.compare_digest(got, expected):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied()
@@ -49,6 +54,11 @@ class BotView(APIView):
     @staticmethod
     def user_for(tid):
         return User.objects.filter(telegram_id=tid).first()
+
+
+def mask_phone(phone):
+    p = str(phone or '')
+    return (p[:4] + ' ** *** ' + p[-4:-2] + ' ' + p[-2:]) if len(p) >= 9 else ''
 
 
 def login_url(user, lang):
@@ -121,6 +131,10 @@ class BotTokenLoginView(APIView):
         t = BotLoginToken.objects.select_for_update().filter(token_hash=_h(token)).first() if 20 <= len(token) <= 100 else None
         if not t or t.used or t.expires_at < timezone.now():
             return Response({'error': 'invalid_code'}, status=400)
+        if request.data.get('preview') is True:
+            # The link is not bound to the browser that asked for it, so someone else's link could sign a victim into
+            # the sender's account. The page first shows whose account this is and signs in only after a click.
+            return Response({'account': mask_phone(t.user.phone) or t.user.email[:2] + '***'})
         t.used = True
         t.save(update_fields=['used'])
         return finish_login(request, t.user)

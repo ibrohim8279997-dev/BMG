@@ -11,8 +11,30 @@ class AIUnavailable(Exception):
     pass
 
 
+class AIQuotaExceeded(AIUnavailable):
+    """Daily AI budget used up (per user or platform-wide). A subclass, so every caller degrades as for 'no AI'."""
+
+
+def check_quota(user):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from apps.core.models import Setting
+    since = timezone.now() - timedelta(days=1)
+    total_cap = int(Setting.get('ai_daily_calls_total') or 0)
+    if total_cap and AIUsage.objects.filter(created_at__gte=since).count() >= total_cap:
+        raise AIQuotaExceeded()
+    per_user = int(Setting.get('ai_daily_calls_per_user') or 0)
+    if per_user and user is not None and getattr(user, 'is_authenticated', False) and not user.is_staff \
+            and AIUsage.objects.filter(user=user, created_at__gte=since).count() >= per_user:
+        raise AIQuotaExceeded()
+
+
 def complete(system, prompt, kind, user=None, web=False):
-    """Try configured providers in order; log usage. Raises AIUnavailable if none works."""
+    """Try configured providers in order; log usage. Raises AIUnavailable if none works or the daily budget is used.
+    Every provider attempt (failed ones too) is logged and counts toward the budget."""
+    check_quota(user)
     for name in settings.AI_PROVIDERS:
         if not settings.AI_KEYS.get(name):
             continue

@@ -119,6 +119,8 @@ def confirm(deal_id, staff):
     d.save(update_fields=['status', 'confirmed_at', 'confirmed_by'])
     documents.commission_invoice(d, staff)
     documents.seller_invoice_data(d, staff)
+    from apps.orders.services import release_payable
+    release_payable(d.order_id, d.seller_id)    # a human confirmed delivery: the payable becomes available
     return d
 
 
@@ -126,6 +128,7 @@ def confirm(deal_id, staff):
 def mark_paid_out(deal_ids, staff, ref):
     """A human confirms the bank transfer to the seller(s). Creates one payout registry document."""
     from apps.orders.models import SellerLedger
+    from apps.orders.services import locked_balance
 
     from . import documents
     ref = str(ref or '').strip()[:80]
@@ -134,6 +137,16 @@ def mark_paid_out(deal_ids, staff, ref):
     deals = list(Deal.objects.select_for_update().filter(pk__in=deal_ids).order_by('id'))
     if len(deals) != len(set(deal_ids)) or any(d.status != Deal.Status.CONFIRMED or d.payout <= 0 for d in deals):
         raise DealError('invalid_state')
+    # Never pay twice: an online deal's payable may already have gone out through a seller payout request.
+    # Lock each seller and require the ledger (minus pending requests) to still cover the deals being paid now.
+    need = {}
+    for d in deals:
+        if d.payment_mode == 'full':
+            need[d.seller_id] = need.get(d.seller_id, 0) + dec(d.payout)
+    for s_id in sorted(need):
+        total, pending = locked_balance(s_id)
+        if total - pending < need[s_id]:
+            raise DealError('already_paid_out')
     reg = documents.payout_registry(deals, staff, ref)
     now = timezone.now()
     for d in deals:

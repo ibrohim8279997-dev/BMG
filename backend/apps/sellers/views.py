@@ -45,6 +45,10 @@ def profile(s: Seller, private=False):
 
 
 BANK_FIELDS = {'inn': 9, 'bank_account': 20, 'bank_mfo': 5}   # digits required
+# Identity and payout requisites. Once staff approved the seller, a filled-in value can only be changed by staff
+# (admin-api accounting/sellers, audited): a hijacked seller session must not be able to redirect payouts or rename
+# a verified company. Empty fields may still be filled in once.
+LOCKED_AFTER_APPROVAL = ('company_name', 'inn', 'bank_account', 'bank_mfo', 'bank_name')
 
 
 class MyProfile(APIView):
@@ -55,9 +59,11 @@ class MyProfile(APIView):
 
     def patch(self, request):
         s = request.user.seller
-        for f in ('company_name', 'description'):
-            if f in request.data:
-                setattr(s, f, str(request.data[f])[:2000])
+        before = {f: getattr(s, f) for f in LOCKED_AFTER_APPROVAL + ('description', 'contact_phone')}
+        if 'company_name' in request.data:
+            s.company_name = str(request.data['company_name']).strip()[:200]
+        if 'description' in request.data:
+            s.description = str(request.data['description'])[:2000]
         if 'contact_phone' in request.data:
             from apps.accounts.phone import normalize_phone
             ph = normalize_phone(str(request.data['contact_phone']))
@@ -72,7 +78,17 @@ class MyProfile(APIView):
                 setattr(s, f, v)
         if 'bank_name' in request.data:
             s.bank_name = str(request.data['bank_name']).strip()[:120]
+        if s.status == 'approved':
+            for f in LOCKED_AFTER_APPROVAL:
+                if before[f] and getattr(s, f) != before[f]:
+                    return Response({'error': 'requisites_locked', 'field': f}, status=400)
+        if s.inn and s.inn != before['inn'] and Seller.objects.filter(inn=s.inn).exclude(pk=s.pk).exists():
+            return Response({'error': 'inn_taken', 'field': 'inn'}, status=400)
         s.save()
+        changed = {f: [before[f], getattr(s, f)] for f in before if before[f] != getattr(s, f)}
+        if changed:
+            audit(request, 'seller_profile_changed', object_type='seller', object_id=s.id,
+                  before={f: v[0] for f, v in changed.items()}, after={f: v[1] for f, v in changed.items()})
         return Response(profile(s, private=True))
 
 
@@ -120,11 +136,19 @@ class MyDelivery(APIView):
             cost = Decimal(str(request.data.get('cost', '0')))
         except InvalidOperation:
             return Response({'error': 'invalid_request'}, status=400)
-        if not region or cost < 0:
+        if not region or not cost.is_finite() or cost < 0:
             return Response({'error': 'invalid_request'}, status=400)
+        # delivery is not commissioned: an uncapped cost would let goods be listed at 0.01 and the price moved here
+        from apps.core.models import Setting
+        if cost > Decimal(str(Setting.get('delivery_cost_max'))):
+            return Response({'error': 'delivery_cost_too_high'}, status=400)
+        cost = cost.quantize(Decimal('0.01'))
+        old = DeliveryRule.objects.filter(seller=request.user.seller, region=region).first()
         r, _ = DeliveryRule.objects.update_or_create(
             seller=request.user.seller, region=region,
             defaults={'cost': cost, 'restrictions': str(request.data.get('restrictions', ''))[:300]})
+        audit(request, 'delivery_rule_saved', object_type='seller', object_id=request.user.seller.id, region=region,
+              before=str(old.cost) if old else None, after=str(cost))
         return Response({'id': r.id}, status=201)
 
 
@@ -174,21 +198,35 @@ class PublicFile(APIView):
 
 
 class RevealPhone(APIView):
-    """Seller's number is hidden; every reveal is written to the audit log."""
+    """Seller's number is hidden; every reveal is written to the audit log. Clients only, with a daily cap per
+    account, and only the seller's published contact number (never the personal login phone)."""
     throttle_classes = [throttle('reveal')]
 
     def post(self, request, pk):
+        from apps.core.permissions import IsClient
+        if not IsClient().has_permission(request, self):
+            return Response({'error': 'forbidden'}, status=403)
         s = get_object_or_404(Seller, pk=pk, status='approved')
         order_id = request.data.get('order_id')
-        if order_id:
+        if order_id not in (None, ''):
+            if not str(order_id).isdigit():
+                return Response({'error': 'invalid_request'}, status=400)
             from apps.orders.models import Order
-            order = Order.objects.filter(pk=order_id, client=request.user, items__seller=s).first()
+            order = Order.objects.filter(pk=int(order_id), client=request.user, items__seller=s).first()
             if not order:
                 return Response({'error': 'invalid_request'}, status=400)
             order_id = order.id
+        if not s.contact_phone:
+            return Response({'error': 'not_found'}, status=404)
+        from django.core.cache import cache
+        from apps.core.models import Setting
+        key = f'reveals:{request.user.pk}:{timezone.localdate().isoformat()}'
+        cache.add(key, 0, 86400)
+        if cache.incr(key) > int(Setting.get('phone_reveals_per_day')):
+            return Response({'error': 'too_many_requests'}, status=429)
         audit(request, 'seller_phone_revealed', object_type='seller', object_id=s.id,
               order_id=order_id or None, seller_user=s.user_id)
-        return Response({'phone': s.contact_phone or s.user.phone})
+        return Response({'phone': s.contact_phone})
 
 
 class SellerList(APIView):

@@ -14,6 +14,12 @@ class Setting(models.Model):
         'cash_commission_percent': 0,       # commission on goods in cash orders; seller owes it, netted from payouts
         'seller_identity_check': False,     # off by default
         'default_commission_percent': 3,    # BMG agent fee, % of the deal; a seller may have its own rate
+        'order_payment_ttl_minutes': 60,    # unpaid orders are cancelled after this and their stock returns (0 = never)
+        'max_open_unpaid_orders': 3,        # per client; blocks reserving a seller's whole stock with unpaid orders
+        'delivery_cost_max': 5000000,       # UZS per delivery rule: delivery is not commissioned, so it is capped
+        'ai_daily_calls_per_user': 300,     # AI calls per user per day (0 = no cap); staff are not capped
+        'ai_daily_calls_total': 20000,      # AI calls per day for the whole platform (0 = no cap)
+        'phone_reveals_per_day': 20,        # seller phone reveals per client per day
         'large_object_area': 1000,          # m2: individual terms for big objects
         'bypass_check_days': 3,             # phone revealed + order still open after N days -> flagged
         'vat_rate': 12,                     # standard VAT rate in Uzbekistan, %

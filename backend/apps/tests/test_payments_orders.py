@@ -242,7 +242,12 @@ class OrderFlow(Base):
         self.login(self.s.user)
         self.assertEqual(self.api.post(f'/api/v1/sellers/me/orders/{oid}/fulfill').status_code, 200)
         self.assertEqual(Order.objects.get().status, 'completed')
+        self.assertFalse(SellerLedger.objects.exists())          # the seller's own "delivered" credits nothing
+        self.login(self.c)
+        self.assertEqual(self.api.post(f'/api/v1/orders/{oid}/confirm-receipt').status_code, 200)
+        self.assertEqual(self.api.post(f'/api/v1/orders/{oid}/confirm-receipt').status_code, 200)   # idempotent
         self.assertEqual(SellerLedger.objects.get().amount, Decimal('98000.00'))   # 100000 + 1000 - 3000
+        self.login(self.s.user)
         a = self.api.get('/api/v1/sellers/me/analytics').json()
         self.assertEqual((a['revenue'], a['margin'], a['payable_balance']), ('100000.00', '40000.00', '98000.00'))
 
@@ -257,6 +262,8 @@ class OrderFlow(Base):
         oid = self.paid_order()
         self.login(self.s.user)
         self.api.post(f'/api/v1/sellers/me/orders/{oid}/fulfill')
+        self.assertEqual(self.api.post('/api/v1/sellers/me/payouts', {'amount': '98000'}, format='json').status_code, 400)
+        osvc.confirm_receipt(oid, self.c)                                       # the client confirms receipt
         self.assertEqual(self.api.post('/api/v1/sellers/me/payouts', {'amount': '999999'}, format='json').status_code, 400)
         # bank details are required first (they go into the bank payment registry)
         self.assertEqual(self.api.post('/api/v1/sellers/me/payouts', {'amount': '98000'}, format='json').data['error'],
@@ -298,10 +305,33 @@ class OrderFlow(Base):
     def test_refund_seller_fault_full_and_clawback(self):
         oid = self.paid_order()
         self.login(self.s.user); self.api.post(f'/api/v1/sellers/me/orders/{oid}/fulfill')
+        osvc.confirm_receipt(oid, self.c)                                     # payable 98000 credited
         r = osvc.refund_order(oid, 'seller', self.staff())
         self.assertEqual(r.amount, Decimal('101000.00'))                      # everything, incl. prepayment
         from django.db.models import Sum
-        self.assertEqual(SellerLedger.objects.filter(seller=self.s).aggregate(s=Sum('amount'))['s'], Decimal('-3000.00'))
+        # exactly what was credited is clawed back (not goods + delivery incl. BMG's commission)
+        self.assertEqual(SellerLedger.objects.filter(seller=self.s).aggregate(s=Sum('amount'))['s'], Decimal('0.00'))
+        self.assertEqual(SellerLedger.objects.get(kind='reversal').amount, Decimal('-98000.00'))
+
+    def test_unpaid_order_can_be_cancelled_and_expires(self):
+        self.cart(10); oid = self.order().json()['id']
+        self.o.refresh_from_db(); self.assertEqual(self.o.stock, 40)
+        self.assertEqual(self.api.post(f'/api/v1/orders/{oid}/cancel').status_code, 200)
+        self.o.refresh_from_db(); self.assertEqual(self.o.stock, 50)          # stock returned
+        self.assertEqual(self.api.post(f'/api/v1/orders/{oid}/cancel').status_code, 400)
+        self.cart(10); oid = self.order().json()['id']
+        from datetime import timedelta
+        from django.utils import timezone
+        Order.objects.filter(pk=oid).update(created_at=timezone.now() - timedelta(hours=2))
+        self.assertEqual(osvc.expire_unpaid(), 1)
+        self.o.refresh_from_db(); self.assertEqual(self.o.stock, 50)
+        self.assertEqual(Order.objects.get(pk=oid).cancel_reason, 'payment_timeout')
+
+    def test_open_unpaid_orders_are_capped(self):
+        for _ in range(3):
+            self.cart(1); self.assertEqual(self.order().status_code, 201)
+        self.cart(1)
+        self.assertEqual(self.order().json()['error'], 'too_many_unpaid_orders')
 
     def test_client_fault_not_allowed_after_completion(self):
         oid = self.paid_order()

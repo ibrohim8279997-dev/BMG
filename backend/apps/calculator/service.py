@@ -99,7 +99,7 @@ def ensure_norms(obj_type, zone, user=None):
 def candidate_offers(category, city):
     cat_ids = [category.id] + list(category.children.values_list('id', flat=True))
     qs = (Offer.objects.filter(active=True, stock__gt=0, seller__status='approved', product__category_id__in=cat_ids)
-          .select_related('product', 'seller').order_by('price'))
+          .select_related('product', 'seller').prefetch_related('seller__delivery_rules').order_by('price'))
     city_l = city.strip().lower()
     out = []
     for o in qs[:200]:

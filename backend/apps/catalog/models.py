@@ -31,6 +31,9 @@ class Product(models.Model):
     name = models.CharField(max_length=200)
     name_key = models.CharField(max_length=200)
     unit = models.CharField(max_length=20, blank=True)
+    # photo found by AI web search, downloaded, validated and stored privately; served via /products/<id>/image
+    image = models.CharField(max_length=80, blank=True)
+    image_status = models.CharField(max_length=10, blank=True)   # '' not searched / found / not_found
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -52,9 +55,14 @@ class Offer(models.Model):
 
 
 class PriceImport(models.Model):
-    seller = models.ForeignKey('sellers.Seller', on_delete=models.CASCADE, related_name='imports')
+    # null only while staff imports a seller's file and the seller is not determined yet
+    seller = models.ForeignKey('sellers.Seller', null=True, blank=True, on_delete=models.CASCADE, related_name='imports')
+    created_by = models.ForeignKey('accounts.User', null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    file_name = models.CharField(max_length=200, blank=True)
     stored_name = models.CharField(max_length=80)
+    header_row = models.PositiveIntegerField(default=0)   # rows above it (title, company, INN) are not goods
     headers = models.JSONField(default=list)
+    ai = models.JSONField(default=dict, blank=True)       # what AI determined: mapped fields, seller detection
     mapping = models.JSONField(default=dict)        # field -> column index
     status = models.CharField(max_length=10, default='draft')   # draft / confirmed
     result = models.JSONField(default=dict, blank=True)

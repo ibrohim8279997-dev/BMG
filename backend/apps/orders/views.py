@@ -1,5 +1,6 @@
 from decimal import Decimal, InvalidOperation
 
+from django.db import transaction
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -22,7 +23,7 @@ def order_payload(o, items=None):
             'prepayment': str(o.prepayment), 'amount_due_online': str(o.amount_due_online),
             'amount_paid': str(o.amount_paid), 'created_at': o.created_at,
             'items': [{'id': i.id, 'name': i.product_name, 'qty': str(i.qty), 'unit_price': str(i.unit_price),
-                       'seller_id': i.seller_id, 'fulfilled': i.fulfilled} for i in items]}
+                       'seller_id': i.seller_id, 'fulfilled': i.fulfilled, 'received': i.credited} for i in items]}
 
 
 class Cart(APIView):
@@ -79,6 +80,30 @@ class OrderDetail(APIView):
 
     def get(self, request, pk):
         return Response(order_payload(get_object_or_404(Order, pk=pk, client=request.user)))
+
+
+class CancelOrder(APIView):
+    """The client cancels an order that is still waiting for payment; the reserved stock returns."""
+    permission_classes = [IsClient]
+
+    def post(self, request, pk):
+        get_object_or_404(Order, pk=pk, client=request.user)
+        if not svc.cancel_unpaid(pk, user=request.user):
+            return Response({'error': 'invalid_state'}, status=400)
+        return Response(order_payload(Order.objects.get(pk=pk)))
+
+
+class ConfirmReceipt(APIView):
+    """The client confirms the goods arrived: only then the seller's payable becomes available for payout."""
+    permission_classes = [IsClient]
+
+    def post(self, request, pk):
+        get_object_or_404(Order, pk=pk, client=request.user)
+        try:
+            o = svc.confirm_receipt(pk, request.user)
+        except svc.OrderError as e:
+            return Response({'error': e.code}, status=400)
+        return Response(order_payload(o))
 
 
 class PayOrder(APIView):
@@ -158,17 +183,20 @@ class SellerAnalytics(APIView):
 class SellerPayout(APIView):
     permission_classes = [IsApprovedSeller]
 
+    @transaction.atomic
     def post(self, request):
-        bal, pending = balance(request.user.seller)
-        avail = bal - pending
         try:
             amount = Decimal(str(request.data.get('amount')))
         except InvalidOperation:
             return Response({'error': 'invalid_request'}, status=400)
-        if not amount.is_finite() or amount <= 0 or amount > avail:
-            return Response({'error': 'insufficient_funds'}, status=400)
+        if not amount.is_finite():
+            return Response({'error': 'invalid_request'}, status=400)
+        amount = svc.q(amount)
         s = request.user.seller
+        bal, pending = svc.locked_balance(s.pk)     # row lock: parallel requests cannot all see the same balance
+        if amount <= 0 or amount > bal - pending:
+            return Response({'error': 'insufficient_funds'}, status=400)
         if not (s.inn and s.bank_account and s.bank_mfo):
             return Response({'error': 'bank_details_required'}, status=400)
-        PayoutRequest.objects.create(seller=request.user.seller, amount=amount)
+        PayoutRequest.objects.create(seller=s, amount=amount)
         return Response(status=201)

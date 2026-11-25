@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import time
 from decimal import Decimal, InvalidOperation
 
@@ -30,19 +31,36 @@ from apps.orders.models import Order, PayoutRequest, SellerLedger
 from apps.sellers.models import CommissionLevel, Seller, SellerApplication
 from apps.support.models import Complaint
 
-MAX_FAILS = 5
+MAX_FAILS = 5              # per (username, IP) in 15 min
+MAX_FAILS_GLOBAL = 30      # per username from all IPs in 15 min (slows a distributed guess without letting one IP
+                           # lock the superadmin out)
 
 
 def hash_code(c):
-    return hashlib.sha256(c.encode()).hexdigest()
+    """Backup codes are stored as HMAC with the server secret: a database leak alone does not reveal them."""
+    norm = c.replace('-', '').replace(' ', '').lower()
+    return hmac.new(settings.SECRET_KEY.encode(), b'backup:' + norm.encode(), hashlib.sha256).hexdigest()
+
+
+def legacy_hash_code(c):
+    return hashlib.sha256(c.encode()).hexdigest()    # codes issued before the HMAC change (8 hex chars)
 
 
 def new_backup_codes(user, n=8):
     import secrets
     user.backup_codes.all().delete()
-    codes = [secrets.token_hex(4) for _ in range(n)]
+    codes = [secrets.token_hex(8) for _ in range(n)]   # 64 random bits each
     BackupCode.objects.bulk_create([BackupCode(user=user, code_hash=hash_code(c)) for c in codes])
     return codes
+
+
+def _bump(key):
+    cache.add(key, 0, 900)      # the window starts at the first failure; later failures do not extend it
+    try:
+        return cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, 900)
+        return 1
 
 
 class AdminLogin(APIView):
@@ -57,8 +75,10 @@ class AdminLogin(APIView):
         if not ip_allowed(request):
             return Response({'error': 'forbidden'}, status=403)
         username = str(request.data.get('username', ''))[:150]
-        key = f'adminfail:{username.lower()}'
-        if cache.get(key, 0) >= MAX_FAILS:
+        ip = client_ip(request) or ''
+        key = f'adminfail:{username.lower()}:{ip}'
+        gkey = f'adminfail:{username.lower()}'
+        if (cache.get(key) or 0) >= MAX_FAILS or (cache.get(gkey) or 0) >= MAX_FAILS_GLOBAL:
             return Response({'error': 'locked'}, status=429)
         user = authenticate(request, username=username, password=str(request.data.get('password', '')))
         ok = bool(user and user.is_staff and user.is_active and hasattr(user, 'totp'))
@@ -66,17 +86,20 @@ class AdminLogin(APIView):
             otp = str(request.data.get('otp', '')).strip()
             backup = str(request.data.get('backup_code', '')).strip()
             if otp:
-                totp = pyotp.TOTP(user.totp.secret)
+                from apps.accounts.models import TotpDevice
+                dev = TotpDevice.objects.select_for_update().get(pk=user.totp.pk)   # parallel replay of one code
+                totp = pyotp.TOTP(dev.secret)
                 step = int(time.time() // 30)
                 matched = next((s for s in (step - 1, step, step + 1)
-                                if s > user.totp.last_used_step and totp.at(s * 30) == otp), None)
+                                if s > dev.last_used_step and hmac.compare_digest(totp.at(s * 30), otp)), None)
                 if matched is None:
                     ok = False
                 else:
-                    user.totp.last_used_step = matched   # a code can't be replayed
-                    user.totp.save(update_fields=['last_used_step'])
+                    dev.last_used_step = matched   # a code can't be replayed
+                    dev.save(update_fields=['last_used_step'])
             elif backup:
-                bc = user.backup_codes.filter(code_hash=hash_code(backup), used=False).first()
+                bc = (user.backup_codes.select_for_update()
+                      .filter(code_hash__in=[hash_code(backup), legacy_hash_code(backup)], used=False).first())
                 if bc is None:
                     ok = False
                 else:
@@ -85,8 +108,9 @@ class AdminLogin(APIView):
             else:
                 ok = False
         if not ok:
-            cache.set(key, cache.get(key, 0) + 1, 900)
-            audit(None, 'admin_login_failed', object_type='user', object_id=username[:40])
+            _bump(key)
+            _bump(gkey)
+            audit(request, 'admin_login_failed', object_type='user', object_id=username[:40])
             return Response({'error': 'invalid_credentials'}, status=400)   # same message for every failure
         cache.delete(key)
         request.session.flush()
@@ -312,7 +336,9 @@ class Audit(AdminBase):
 SETTING_TYPES = {'prepayment_percent': (int, float), 'prepayment_min_order_sum': (int, float),
                  'prepayment_cash_percent': (int, float), 'cash_commission_percent': (int, float), 'seller_identity_check': (bool,),
                  'large_object_area': (int, float),
-                 'bypass_check_days': (int,), 'support_phone': (str,), 'support_telegram': (str,), 'support_email': (str,)}
+                 'bypass_check_days': (int,), 'order_payment_ttl_minutes': (int,), 'max_open_unpaid_orders': (int,),
+                 'delivery_cost_max': (int, float), 'ai_daily_calls_per_user': (int,), 'ai_daily_calls_total': (int,),
+                 'phone_reveals_per_day': (int,), 'support_phone': (str,), 'support_telegram': (str,), 'support_email': (str,)}
 
 
 class Settings(AdminBase):
@@ -375,8 +401,10 @@ class Payouts(AdminBase):
         p = get_object_or_404(PayoutRequest.objects.select_for_update(), pk=pk, status='requested')
         action = request.data.get('action')
         if action == 'pay':
-            # the payable may already have been paid deal by deal from the accounting section: never pay twice
-            if (SellerLedger.objects.filter(seller=p.seller).aggregate(s=Sum('amount'))['s'] or 0) < p.amount:
+            # the payable may already have been paid deal by deal from the accounting section: never pay twice.
+            # The seller row is locked so two finance staff paying different requests cannot both pass.
+            total, _ = osvc.locked_balance(p.seller_id)
+            if total < p.amount:
                 return Response({'error': 'insufficient_funds'}, status=400)
             SellerLedger.objects.create(seller=p.seller, kind='payout', amount=-p.amount)
             p.status = 'paid'

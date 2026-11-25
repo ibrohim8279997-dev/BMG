@@ -3,6 +3,7 @@ from django.urls import path
 from . import accounting as a
 from . import crm as c
 from . import finance as f
+from . import imports as im
 from . import reports as r
 from . import views as v
 
@@ -56,6 +57,10 @@ urlpatterns = [
     path('accounting/sellers', a.SellerRequisites.as_view()),
     path('accounting/sellers/<int:pk>', a.SellerRequisites.as_view()),
     path('model', f.FinancialModel.as_view()),
+    path('imports', im.Imports.as_view()),
+    path('imports/<int:pk>', im.ImportDetail.as_view()),
+    path('imports/<int:pk>/confirm', im.ImportConfirm.as_view()),
+    path('imports/<int:pk>/images', im.ImportImages.as_view()),
     path('crm', c.Overview.as_view()),
     path('crm/test', c.TestEvent.as_view()),
     path('crm/events/<int:pk>/resend', c.Resend.as_view()),

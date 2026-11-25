@@ -4,4 +4,7 @@ services:
     build: .
     env_file: .env
     restart: unless-stopped
-    network_mode: host   # lets BACKEND_URL=http://127.0.0.1:8000 reach a backend on the same host
+    # host network so BACKEND_URL=http://127.0.0.1:8000 reaches a backend bound to localhost only (the bot API
+    # accepts only BOT_API_ALLOWED_IPS). The bot opens no ports. If the backend listens on a private interface
+    # instead, drop this line and point BACKEND_URL at that address.
+    network_mode: host

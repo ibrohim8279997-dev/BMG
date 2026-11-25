@@ -17,10 +17,13 @@ SUMMARY_ROWS = [('deals', 'Сделок'), ('turnover', 'Оборот сдело
                 ('refunded', 'Возвраты (сторно)')]
 
 
+FORMULA_START = ('=', '+', '-', '@', '\t', '\r', '\n')
+
+
 def safe(v):
-    """Spreadsheet formula-injection guard."""
+    """Spreadsheet formula-injection guard (also tab / CR / LF and leading spaces); plain negative numbers stay."""
     s = '' if v is None else str(v)
-    return "'" + s if s[:1] in ('=', '+', '-', '@') and not s.lstrip('-').isdigit() else s
+    return "'" + s if s.lstrip(' ')[:1] in FORMULA_START and not s.lstrip('-').isdigit() else s
 
 
 def journal_rows(docs):

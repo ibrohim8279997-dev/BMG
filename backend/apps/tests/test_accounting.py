@@ -104,6 +104,8 @@ class Flow(FlowBase):
         setting(bmg_vat_payer=True, bmg_vat_from='2020-01-01')
         d = self.delivered()
         self.assertEqual(d.status, 'delivered')
+        self.assertFalse(SellerLedger.objects.filter(kind='sale').exists())   # the seller's own word credits nothing
+        dsvc.confirm(d.id, self.staff)                                          # a human confirms delivery
         self.assertEqual(SellerLedger.objects.get(kind='sale').amount, Decimal(d.payout))
 
     def test_cash_mode_holds_only_the_prepayment(self):
@@ -186,6 +188,19 @@ class Flow(FlowBase):
         self.assertEqual((d.status, d.payout_ref, reg.kind, reg.total), ('paid_out', 'PP-1', 'registry', 98000))
         from django.db.models import Sum
         self.assertEqual(SellerLedger.objects.filter(seller=self.s).aggregate(s=Sum('amount'))['s'], 0)
+
+    def test_deal_cannot_be_paid_twice_via_request_and_registry(self):
+        from apps.orders.models import PayoutRequest
+        d = self.delivered()
+        dsvc.confirm(d.id, self.staff)                                          # payable credited: 98000
+        p = PayoutRequest.objects.create(seller=self.s, amount=Decimal(d.payout))
+        with self.assertRaises(dsvc.DealError):                                 # pending request already claims it
+            dsvc.mark_paid_out([d.id], self.staff, 'PP-2')
+        p.status = 'paid'; p.save()
+        SellerLedger.objects.create(seller=self.s, kind='payout', amount=-Decimal(d.payout))
+        with self.assertRaises(dsvc.DealError) as e:                            # paid through the request: never again
+            dsvc.mark_paid_out([d.id], self.staff, 'PP-2')
+        self.assertEqual(e.exception.code, 'already_paid_out')
 
     def test_agent_act_per_period(self):
         for _ in range(2):
