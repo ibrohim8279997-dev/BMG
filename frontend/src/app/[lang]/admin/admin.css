@@ -1,0 +1,75 @@
+/* ───────── Admin panel: sidebar + content, calm and scannable ───────── */
+.adm { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 24px; align-items: start; margin-top: 8px; }
+.adm-side { display: flex; flex-direction: column; gap: 14px; padding: 18px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.adm-brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 14px; border-bottom: 1px solid var(--line); }
+.adm-brand b { font: 800 1.05rem var(--font-head); letter-spacing: -.01em; }
+.adm-brand small { display: block; color: var(--muted); font-size: .78rem; }
+.adm-avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-2); font-weight: 800; text-transform: uppercase; flex: none; }
+.adm-group h4 { margin: 0 0 6px; padding: 0 10px; font-size: .7rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.adm-link { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border: 0; border-radius: var(--r-3); background: transparent; color: var(--text); font: inherit; font-size: .93rem; text-align: left; cursor: pointer; transition: background var(--dur-2), color var(--dur-2); }
+.adm-link:hover { background: var(--surface-2); }
+.adm-link.on { background: var(--btn-bg); color: var(--btn-fg); font-weight: 700; }
+.adm-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.adm-link span.lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-badge { min-width: 22px; padding: 1px 7px; border-radius: var(--r-full); background: var(--danger); color: #fff; font-size: .72rem; font-weight: 800; text-align: center; }
+.adm-link.on .adm-badge { background: var(--accent); }
+.adm-side .btn { margin-top: auto; }
+
+.adm-main { min-width: 0; }
+.adm-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.adm-head h1 { margin: 0; font-size: clamp(1.5rem, 2.4vw, 2rem); }
+.adm-head p { margin: 4px 0 0; color: var(--muted); max-width: 70ch; }
+.adm-mobile-nav { display: none; }
+
+/* sub-tabs inside a section */
+.adm-sub { display: flex; gap: 4px; padding: 4px; margin: 0 0 18px; background: var(--surface-2); border-radius: var(--r-4); overflow-x: auto; }
+.adm-sub button { flex: none; border: 0; background: transparent; color: var(--text); padding: 9px 16px; border-radius: var(--r-3); font: inherit; font-size: .92rem; cursor: pointer; white-space: nowrap; min-height: 40px; }
+.adm-sub button.on { background: var(--surface); font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.adm-sub .adm-badge { margin-left: 6px; }
+
+/* start page */
+.adm-todo { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 22px; }
+.adm-todo button { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px 18px; text-align: left; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; transition: border-color var(--dur-2), transform var(--dur-2); }
+.adm-todo button:hover { border-color: var(--accent); transform: translateY(-1px); }
+.adm-todo b { font: 800 1.8rem var(--font-head); line-height: 1; }
+.adm-todo .hot b { color: var(--danger); }
+.adm-todo button:not(.hot) { background: transparent; border-style: dashed; }
+.adm-todo button:not(.hot) b { color: var(--muted); font-size: 1.3rem; }
+.adm-todo small { color: var(--muted); }
+.adm-allclear { display: flex; align-items: center; gap: 10px; color: var(--ok); font-weight: 600; }
+
+/* tables: quieter rows, right-aligned money */
+.adm-main th, .adm-main td { padding: 10px 8px; }
+.adm-main td .tag { white-space: nowrap; }
+.adm-main .kpi b { font-size: 1.3rem; white-space: nowrap; display: block; }
+.adm-main .kpi .muted { display: block; margin-top: 2px; }
+.adm-main td.n, .adm-main th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.adm-main tbody tr:hover { background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
+.adm-main > .card + .card, .adm-main > .card + .kpis, .adm-main > .kpis + .card { margin-top: 16px; }
+.adm-main .card h3 { margin-top: 0; }
+.adm-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.adm-main td .adm-actions { flex-wrap: nowrap; }
+.adm-main td .btn.small { padding: 5px 10px; min-height: 34px; font-size: .84rem; }
+.adm-main td.nw { white-space: nowrap; }
+.adm-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 14px; }
+.adm-filters > div { flex: 0 1 180px; }
+.adm-filters label { display: block; font-size: .78rem; color: var(--muted); margin-bottom: 4px; }
+.adm-empty { padding: 28px; text-align: center; color: var(--muted); }
+.tag.warn { background: var(--warn-bg); color: var(--warn-text); }
+
+/* VAT threshold meter */
+.meter { height: 10px; border-radius: var(--r-full); background: var(--surface-2); overflow: hidden; margin: 10px 0 6px; }
+.meter > i { display: block; height: 100%; background: var(--ok); border-radius: inherit; transition: width var(--dur-4) var(--ease); }
+.meter.near > i { background: #d97706; } .meter.over > i { background: var(--danger); }
+.problems { margin: 8px 0 0; padding-left: 18px; color: var(--danger); font-size: .9rem; }
+.adm-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 16px; }
+.adm-form .field label { font-size: .85rem; color: var(--muted); }
+
+@media (max-width: 900px) {
+  .adm { grid-template-columns: 1fr; gap: 12px; }
+  .adm-side { display: none; }
+  .adm-mobile-nav { display: block; margin-bottom: 12px; }
+  .adm-head { flex-direction: column; }
+}
+.linkbtn { border: 0; background: none; padding: 2px 0; color: var(--accent-2); font: inherit; cursor: pointer; text-align: left; }
+.linkbtn:hover { text-decoration: underline; }

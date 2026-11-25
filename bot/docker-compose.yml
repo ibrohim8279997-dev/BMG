@@ -1,0 +1,7 @@
+# docker compose up -d --build   (run from this folder; fill .env first)
+services:
+  bot:
+    build: .
+    env_file: .env
+    restart: unless-stopped
+    network_mode: host   # lets BACKEND_URL=http://127.0.0.1:8000 reach a backend on the same host

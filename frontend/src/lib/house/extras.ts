@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 import { Kit, PLINTH, mesh, roofY } from './kit';
 import { boxM } from './textures';
-
-const leaves = { summer: ['#5f8f4e', '#6f9d57', '#4f7f45'], autumn: ['#c9772e', '#b5532f', '#d9a23a'], winter: ['#eef2f4', '#e3e9ec', '#f6f8f9'] };
+import type { ShrubSpot, TreeSpot } from './vegetation';
 
 /** Chimney, porch, balcony, garage, solar panels, pool, door lamps. Returns the lights that switch on at night. */
 export function addExtras(kit: Kit, group: THREE.Group, floors: THREE.Group[], roof: THREE.Group): THREE.PointLight[] {
@@ -11,15 +10,16 @@ export function addExtras(kit: Kit, group: THREE.Group, floors: THREE.Group[], r
   if (x.chimney) {
     const ridge = d.roofType === 'flat' ? 0.4 : d.roofType === 'mono' ? W * Math.tan(p) : (W / 2) * Math.tan(p);
     const h = ridge + 0.9, cx = d.roofType === 'hip' ? Math.min(L / 4, Math.max(0, (L - W) / 2)) : L / 4;
-    const ch = mesh(boxM(0.7, h, 0.7), kit.std({ tex: 'brick', color: '#8a4b36', bump: 1.4 })); ch.position.set(cx, h / 2, -W / 5); roof.add(ch);
+    const ch = mesh(boxM(0.7, h, 0.7), kit.std({ set: 'clinker', color: '#ffffff' })); ch.position.set(cx, h / 2, -W / 5); roof.add(ch);
     const cap = mesh(boxM(0.86, 0.1, 0.86), kit.trim); cap.position.set(cx, h + 0.05, -W / 5); roof.add(cap);
   }
   if (x.porch) {
     const deck = mesh(boxM(2.8, PLINTH, 1.5), kit.plinth); deck.position.set(0, PLINTH / 2, W / 2 + 0.75); group.add(deck);
     const step = mesh(boxM(2.8, PLINTH / 2, 0.45), kit.plinth); step.position.set(0, PLINTH / 4, W / 2 + 1.72); group.add(step);
     const cy = PLINTH + doorH + 0.45;
-    const roofSlab = mesh(boxM(3.2, 0.14, 1.8), kit.trim); roofSlab.position.set(0, cy, W / 2 + 0.9); group.add(roofSlab);
-    for (const s of [-1, 1]) { const col = mesh(new THREE.CylinderGeometry(0.08, 0.09, cy - PLINTH, 16), kit.trim); col.position.set(s * 1.3, PLINTH + (cy - PLINTH) / 2, W / 2 + 1.55); group.add(col); }
+    const top = new THREE.Group(); top.name = 'porchTop'; top.userData.keep = true; group.add(top);   // hidden in the cutaway view
+    const roofSlab = mesh(boxM(3.2, 0.14, 1.8), kit.trim); roofSlab.position.set(0, cy, W / 2 + 0.9); top.add(roofSlab);
+    for (const s of [-1, 1]) { const col = mesh(new THREE.CylinderGeometry(0.08, 0.09, cy - PLINTH, 16), kit.trim); col.position.set(s * 1.3, PLINTH + (cy - PLINTH) / 2, W / 2 + 1.55); top.add(col); }
   } else {
     const step = mesh(boxM(1.6, PLINTH, 0.6), kit.plinth); step.position.set(0, PLINTH / 2, W / 2 + 0.3); group.add(step);
   }
@@ -62,8 +62,8 @@ export function addExtras(kit: Kit, group: THREE.Group, floors: THREE.Group[], r
   }
   if (x.pool) {
     const px = -L / 6, pz = -(W / 2 + 3.6);
-    const coping = mesh(boxM(6.6, 0.2, 3.6), kit.std({ tex: 'paving', color: '#ddd6c8' })); coping.position.set(px, 0.1, pz); group.add(coping);
-    const water = new THREE.MeshStandardMaterial({ color: '#3fa7c9', roughness: 0.04, metalness: 0.2, transparent: true, opacity: 0.9, emissive: new THREE.Color('#1d6f8f'), emissiveIntensity: 0.15 });
+    const coping = mesh(boxM(6.6, 0.2, 3.6), kit.std({ set: 'granite', color: '#ffffff' })); coping.position.set(px, 0.1, pz); group.add(coping);
+    const water = new THREE.MeshPhysicalMaterial({ color: '#2f8fae', roughness: 0.02, metalness: 0, ior: 1.33, transparent: true, opacity: 0.88, clearcoat: 1, emissive: new THREE.Color('#1d6f8f'), emissiveIntensity: 0.15 });
     kit.all.push(water);
     const w = mesh(new THREE.BoxGeometry(6, 0.04, 3), water, undefined, false); w.position.set(px, 0.2, pz); w.userData.water = true; group.add(w);
   }
@@ -78,31 +78,42 @@ function planeM(w: number, h: number) {
   return g;
 }
 
-/** Ground, path, driveway, fence, trees and shrubs. Returns half sizes of the plot. */
-export function addGround(kit: Kit, group: THREE.Group) {
+export type Plot = { x: number; z: number; trees: TreeSpot[]; shrubs: ShrubSpot[] };
+
+/** Ground, yard surface, paths with kerbs, driveway, fence and the spots where trees and shrubs will grow. */
+export function addGround(kit: Kit, group: THREE.Group): Plot {
   const { d } = kit, L = d.length, W = d.width, x = d.extras, winter = d.season === 'winter';
   const px = L / 2 + 6.5 + (x.garage ? 3.8 : 0), pz = W / 2 + 7;
-  const gcol = winter ? '#f1f4f6' : d.ground === 'lawn' ? (d.season === 'autumn' ? '#9c9a5a' : '#7fa05c') : d.ground === 'paving' ? '#c4bdaf' : '#b9ae9a';
-  const ground = mesh(planeM(260, 260), kit.std({ tex: winter ? 'snow' : d.ground, color: gcol, rough: 1, bump: 1 }), undefined, false);
-  group.add(ground);
-  const pave = kit.std({ tex: 'paving', color: winter ? '#e8edf0' : '#d2cbbd' });
+  const snow = kit.std({ tex: 'snow', color: '#f2f5f7', rough: 0.9 });
+  const field = mesh(planeM(320, 320), winter ? snow : kit.std({ set: 'lawn', color: d.season === 'autumn' ? '#e0d4a0' : '#ffffff' }), undefined, false);
+  group.add(field);
+  if (!winter && d.ground !== 'lawn') {   // the chosen yard surface inside the plot
+    const yard = mesh(planeM(2 * px, 2 * pz), kit.std({ set: d.ground, color: '#ffffff' }), undefined, false); yard.position.y = 0.012; group.add(yard);
+  }
+  const pave = winter ? snow : kit.std({ set: d.ground === 'paving' ? 'granite' : 'paving', color: '#ffffff' });
+  const kerb = kit.std({ set: 'concrete', color: '#e6e3dc' });
   const start = W / 2 + (x.porch ? 1.95 : 0.6), plen = pz - start;
-  const path = mesh(boxM(1.4, 0.04, plen), pave); path.position.set(0, 0.02, start + plen / 2); group.add(path);
-  if (x.garage) { const dl = pz - W / 2, dw = mesh(boxM(3.2, 0.035, dl), kit.std({ tex: 'concrete', color: winter ? '#e8edf0' : '#bdb8ae' })); dw.position.set(L / 2 + 1.9, 0.018, W / 2 + dl / 2); group.add(dw); }
+  const path = mesh(boxM(1.4, 0.05, plen), pave); path.position.set(0, 0.025, start + plen / 2); group.add(path);
+  for (const s of [-1, 1]) { const k = mesh(boxM(0.08, 0.1, plen), kerb); k.position.set(s * 0.74, 0.05, start + plen / 2); group.add(k); }
+  const apron = mesh(boxM(L + 1.4, 0.04, 0.6), pave); apron.position.set(0, 0.02, W / 2 + 0.36); if (!x.porch) group.add(apron);   // blind area along the front
+  if (x.garage) {
+    const dl = pz - W / 2, dw = mesh(boxM(3.2, 0.045, dl), winter ? snow : kit.std({ set: 'granite', color: '#ffffff' })); dw.position.set(L / 2 + 1.9, 0.022, W / 2 + dl / 2); group.add(dw);
+    for (const s of [-1, 1]) { const k = mesh(boxM(0.08, 0.1, dl), kerb); k.position.set(L / 2 + 1.9 + s * 1.64, 0.05, W / 2 + dl / 2); group.add(k); }
+  }
   for (const s of [-1, 1]) {   // path bollards
-    const b = mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.5, 12), kit.frame); b.position.set(s * 1.0, 0.25, start + plen * 0.55); group.add(b);
-    const h = mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.08, 12), kit.lamp, undefined, false); h.position.set(s * 1.0, 0.52, start + plen * 0.55); group.add(h);
+    const b = mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.5, 16), kit.frame); b.position.set(s * 1.0, 0.25, start + plen * 0.55); group.add(b);
+    const h = mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.08, 16), kit.lamp, undefined, false); h.position.set(s * 1.0, 0.52, start + plen * 0.55); group.add(h);
   }
   if (x.fence) {
-    const wood = kit.std({ tex: 'wood', color: '#8a6f55', rough: 0.8 }), postG = boxM(0.12, 1.25, 0.12);
-    const gaps: [number, number][] = [[-1.2, 1.2]];
+    const wood = kit.std({ set: 'decking', color: '#ffffff', rough: 0.8 }), postM = kit.std({ color: '#2f3134', rough: 0.4, metal: 0.6 });
+    const postG = boxM(0.08, 1.6, 0.08), gaps: [number, number][] = [[-1.2, 1.2]];
     if (x.garage) gaps.push([L / 2 + 1.9 - 1.9, L / 2 + 1.9 + 1.9]);
     const run = (a: THREE.Vector3, b: THREE.Vector3) => {
       const len = a.distanceTo(b); if (len < 0.3) return;
-      const n = Math.max(1, Math.round(len / 2.2)), dir = new THREE.Vector3().subVectors(b, a);
-      for (let i = 0; i <= n; i++) { const m = mesh(postG, wood); m.position.copy(a).addScaledVector(dir, i / n).setY(0.62); group.add(m); }
-      for (const y of [0.45, 1.0]) {
-        const r = mesh(boxM(len, 0.08, 0.05), wood); r.position.copy(a).add(b).multiplyScalar(0.5).setY(y); r.rotation.y = -Math.atan2(dir.z, dir.x); group.add(r);
+      const n = Math.max(1, Math.round(len / 2.4)), dir = new THREE.Vector3().subVectors(b, a);
+      for (let i = 0; i <= n; i++) { const m = mesh(postG, postM); m.position.copy(a).addScaledVector(dir, i / n).setY(0.8); group.add(m); }
+      for (let k = 0; k < 6; k++) {   // horizontal planks with gaps: a modern slatted fence
+        const r = mesh(boxM(len, 0.12, 0.025), wood); r.position.copy(a).add(b).multiplyScalar(0.5).setY(0.22 + k * 0.23); r.rotation.y = -Math.atan2(dir.z, dir.x); group.add(r);
       }
     };
     run(new THREE.Vector3(-px, 0, -pz), new THREE.Vector3(px, 0, -pz));
@@ -112,24 +123,13 @@ export function addGround(kit: Kit, group: THREE.Group) {
     for (const [a, b] of gaps.sort((u, v) => u[0] - v[0])) { run(new THREE.Vector3(cur, 0, pz), new THREE.Vector3(a, 0, pz)); cur = b; }
     run(new THREE.Vector3(cur, 0, pz), new THREE.Vector3(px, 0, pz));
   }
+  const trees: TreeSpot[] = [], shrubs: ShrubSpot[] = [];
   if (x.trees) {
-    const bark = kit.std({ color: '#6b5240', rough: 1 }), cols = leaves[d.season];
-    const crowns = cols.map((c) => { const m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.9, flatShading: true }); kit.all.push(m); return m; });
-    const spots: [number, number, number][] = [[-px + 2.4, pz - 2.6, 1.1], [px - 2.4, -pz + 2.4, 1], [-px + 2.6, -pz + 2.6, 1.25], [px - 2.4, -pz * 0.15, 0.9], [-px + 2.1, 0, 0.85], [L / 2 + 1, -pz + 2.2, 1.05]];
-    spots.forEach(([tx, tz, k], i) => {
-      const t = new THREE.Group(); t.position.set(tx, 0, tz); t.scale.setScalar(k);
-      const trunk = mesh(new THREE.CylinderGeometry(0.14, 0.2, 2.4, 8), bark); trunk.position.y = 1.2; t.add(trunk);
-      const n = winter ? 1 : 3;
-      for (let j = 0; j < n; j++) {
-        const r = winter ? 0.9 : 1.25 + ((i + j) % 3) * 0.25;
-        const c = mesh(new THREE.IcosahedronGeometry(r, 1), crowns[(i + j) % crowns.length]);
-        c.position.set(j === 0 ? 0 : (j === 1 ? 0.7 : -0.6), 2.9 + j * 0.45 + (winter ? 0.2 : 0), j === 2 ? 0.5 : 0); t.add(c);
-      }
-      group.add(t);
-    });
-    for (const sx of [-1, 1]) for (let i = 0; i < 2; i++) {   // shrubs along the front wall
-      const b = mesh(new THREE.IcosahedronGeometry(0.5, 1), crowns[i % crowns.length]); b.scale.set(1.3, 0.8, 1); b.position.set(sx * (2.4 + i * 1.6), 0.38, W / 2 + 0.55); group.add(b);
-    }
+    trees.push({ x: -px + 2.6, z: pz - 2.8, h: 8.5, kind: 'oak' }, { x: px - 2.6, z: -pz + 2.5, h: 9.5, kind: 'ash' },
+      { x: -px + 2.8, z: -pz + 2.8, h: 10, kind: 'pine' }, { x: px - 2.4, z: -pz * 0.1, h: 7.5, kind: 'aspen' },
+      { x: -px - 7, z: -pz - 6, h: 12, kind: 'pine' }, { x: px + 8, z: -pz - 4, h: 11, kind: 'oak' }, { x: -px - 9, z: pz - 3, h: 9, kind: 'aspen' }, { x: px + 6, z: pz + 9, h: 10, kind: 'ash' });
+    for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) shrubs.push({ x: sx * (2.2 + i * 1.3), z: W / 2 + 0.9, s: 0.8 + (i % 2) * 0.25 });
+    for (let i = 0; i < 6; i++) shrubs.push({ x: -px + 1 + i * 0.1, z: -pz + 4 + i * 2.1, s: 1 + (i % 3) * 0.2 });
   }
-  return { x: px, z: pz };
+  return { x: px, z: pz, trees, shrubs };
 }

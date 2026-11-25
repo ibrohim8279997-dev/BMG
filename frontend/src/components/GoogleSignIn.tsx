@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { ErrorText } from './Bits';
+import Captcha, { useCaptchaKey } from './Captcha';
 import { useAuth, useLang, useT } from './Providers';
 import { api } from '@/lib/api';
 import { nextFromLocation } from '@/lib/pending';
@@ -23,13 +24,15 @@ export default function GoogleSignIn() {
   const [terms, setTerms] = useState(false);
   const [needReg, setNeedReg] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const captchaKey = useCaptchaKey();
+  const [captcha, setCaptcha] = useState('');
 
   useEffect(() => { api('/api/v1/auth/providers').then((r) => setClientId(r.google_client_id || '')).catch(() => {}); }, []);
 
   async function send(credential: string, reg: boolean) {
     setErr(null);
     try {
-      await api('/api/v1/auth/google', { body: { credential, language: lang, ...(reg ? { role, company_name: company, accept_privacy: privacy, accept_terms: terms } : {}) } });
+      await api('/api/v1/auth/google', { body: { credential, language: lang, ...(reg ? { role, company_name: company, accept_privacy: privacy, accept_terms: terms, captcha } : {}) } });
       await refresh();
       router.push(reg && role === 'seller' ? `/${lang}/seller` : nextFromLocation() || `/${lang}`);
     } catch (e: any) {
@@ -71,7 +74,8 @@ export default function GoogleSignIn() {
             <span>{t('login.accept')} <Link href={`/${lang}/legal/privacy`} target="_blank">{t('legal.privacy')}</Link></span></label>
           <label className="check"><input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} />
             <span>{t('login.accept')} <Link href={`/${lang}/legal/terms`} target="_blank">{t('legal.terms')}</Link></span></label>
-          <div className="actions"><button className="btn" disabled={!(privacy && terms)} onClick={() => send(cred, true)}>{t('login.enter')}</button></div>
+          <Captcha siteKey={captchaKey} onToken={setCaptcha} lang={lang} />
+          <div className="actions"><button className="btn" disabled={!(privacy && terms) || (!!captchaKey && !captcha)} onClick={() => send(cred, true)}>{t('login.enter')}</button></div>
         </div>)}
       <ErrorText code={err} />
     </div>

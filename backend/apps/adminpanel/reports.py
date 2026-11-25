@@ -11,13 +11,12 @@ from django.utils import timezone
 
 from rest_framework.response import Response
 
-from apps.accounting.models import Invoice
 from apps.audit.models import AuditLog
 from apps.audit.models import log as audit
 from apps.core.models import Setting
-from apps.orders.models import Order, OrderItem, Refund, SellerLedger
+from apps.orders.models import Order, OrderItem, PayoutRequest, Refund, SellerLedger
 from apps.payments.models import LedgerEntry, Wallet
-from apps.sellers.models import Seller
+from apps.sellers.models import Seller, SellerApplication
 from apps.support.models import Complaint, Review
 
 from .views import AdminBase
@@ -26,8 +25,13 @@ ZERO = Decimal('0')
 
 
 def bmg_revenue(o):
-    """What BMG earns on a completed order: commission (online orders) or the prepayment (cash orders)."""
-    return o.commission_total if o.payment_mode == 'full' else o.prepayment
+    """What BMG earns on a completed order: commission (online orders) or the prepayment plus any cash commission
+    booked as the seller's debt (cash orders)."""
+    if o.payment_mode == 'full':
+        return o.commission_total
+    from apps.orders.models import SellerLedger
+    fee = SellerLedger.objects.filter(order=o, kind='cash_comm').aggregate(s=Sum('amount'))['s'] or ZERO
+    return o.prepayment - fee
 
 
 def month_start(d):
@@ -179,9 +183,13 @@ EXPORTS = {
     'seller-ledger': (['id', 'created_at', 'seller_id', 'kind', 'amount', 'order_id'],
                       lambda: ((e.id, e.created_at, e.seller_id, e.kind, e.amount, e.order_id)
                                for e in SellerLedger.objects.order_by('id').iterator())),
-    'invoices': (['number', 'period', 'status', 'seller_id', 'gross', 'vat_rate', 'vat_amount', 'net', 'orders', 'tax_ref'],
-                 lambda: ((i.number, i.period, i.status, i.seller_id, i.gross, i.vat_rate, i.vat_amount, i.net, len(i.lines),
-                           i.tax_ref) for i in Invoice.objects.order_by('id').iterator())),
+    # bank payment registry: requested payouts with the seller's bank details, to pay them from the BMG account
+    'payout-registry': (['payout_id', 'requested_at', 'seller_id', 'company', 'inn', 'bank_account', 'bank_mfo', 'bank_name',
+                         'amount', 'purpose'],
+                        lambda: ((p.id, p.created_at, p.seller_id, p.seller.company_name, p.seller.inn, p.seller.bank_account,
+                                  p.seller.bank_mfo, p.seller.bank_name, p.amount, f'BMG payout #{p.id}')
+                                 for p in PayoutRequest.objects.filter(status='requested').select_related('seller')
+                                 .order_by('id').iterator())),
     # customer balances are a separate liability line, not mixed into revenue
     'client-balances': (['user_id', 'balance'],
                         lambda: ((w.user_id, w.balance) for w in Wallet.objects.order_by('user_id').iterator())),
@@ -193,7 +201,7 @@ class Export(AdminBase):
 
     def get(self, request, kind):
         spec = EXPORTS.get(kind)
-        if spec is None or (kind == 'invoices' and not Setting.get('tax_accounting_enabled')):
+        if spec is None:
             return Response(status=404)
         header, rows = spec
         resp = HttpResponse(content_type='text/csv; charset=utf-8')
@@ -205,3 +213,29 @@ class Export(AdminBase):
             w.writerow([safe(c) for c in row])
         audit(request, 'report_exported', object_type='report', object_id=kind)
         return resp
+
+
+class Overview(AdminBase):
+    """Start page: what needs attention, limited to what this staff member may see."""
+
+    def get(self, request):
+        u, out = request.user, {}
+        if u.has_staff_perm('sellers'):
+            out['applications_new'] = SellerApplication.objects.filter(status='new').count()
+            out['sellers_pending'] = Seller.objects.filter(status='pending').count()
+            out['contracts_unconfirmed'] = Seller.objects.filter(status='approved').exclude(contract_status='confirmed').count()
+        if u.has_staff_perm('support'):
+            out['complaints_new'] = Complaint.objects.filter(status='new').count()
+        if u.has_staff_perm('finance'):
+            out['payouts_requested'] = PayoutRequest.objects.filter(status='requested').count()
+        if u.has_staff_perm('orders'):
+            since = timezone.now() - timedelta(days=30)
+            recent = Order.objects.filter(created_at__gte=since)
+            out['orders_30d'] = recent.count()
+            out['orders_paid'] = Order.objects.filter(status='paid').count()
+            out['gmv_30d'] = str(recent.filter(status__in=['paid', 'completed']).aggregate(s=Sum('total'))['s'] or 0)
+        if u.has_staff_perm('accounting'):
+            from apps.accounting import services as acc
+            out['accounting'] = acc.attention()
+            out['vat_threshold'] = acc.vat_threshold()
+        return Response(out)

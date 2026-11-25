@@ -24,7 +24,19 @@ class Seller(models.Model):
     commission_override = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     rating = models.DecimalField(max_digits=3, decimal_places=2, default=Decimal('0'))
     identity_verified = models.BooleanField(default=False)
+    # bank details for payouts (bank payment registry export); validated on input
+    inn = models.CharField(max_length=9, blank=True)             # STIR / INN, 9 digits
+    bank_account = models.CharField(max_length=20, blank=True)   # settlement account, 20 digits
+    bank_mfo = models.CharField(max_length=5, blank=True)        # bank MFO code, 5 digits
+    bank_name = models.CharField(max_length=120, blank=True)
     approved_at = models.DateTimeField(null=True, blank=True)   # staff confirmed this seller is genuinely BMG's
+    # agent-scheme requisites: shown on documents; a seller gets no orders until the agency contract is confirmed
+    legal_address = models.CharField(max_length=250, blank=True)
+    vat_payer = models.BooleanField(default=False)               # seller's invoice to the client carries VAT 12%
+    contract_number = models.CharField(max_length=40, blank=True)
+    contract_date = models.DateField(null=True, blank=True)
+    contract_status = models.CharField(max_length=10, default='none', db_index=True)   # none / pending / confirmed / terminated
+    contract_confirmed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def commission_percent(self):
@@ -42,6 +54,10 @@ class Seller(models.Model):
         if avg is not None:
             self.rating = Decimal(str(avg)).quantize(Decimal('0.01'))
             self.save(update_fields=['rating'])
+
+    @property
+    def contract_ok(self):
+        return self.contract_status == 'confirmed'
 
     @property
     def is_approved(self):

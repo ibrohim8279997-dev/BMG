@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ErrorText, RequireAuth } from '@/components/Bits';
 import ReviewForm from '@/components/ReviewForm';
+import SavedCards from '@/components/SavedCards';
 import { useLang, useT } from '@/components/Providers';
 import { api, money } from '@/lib/api';
 
@@ -56,6 +57,7 @@ function Account() {
             <tr key={i}><td>{new Date(e.at).toLocaleString(lang)}</td><td>{t(`ledger.${e.kind}`)}</td><td>{money(e.amount, lang)}</td></tr>)}</tbody></table></div>
         </div>
       )}
+      {tab === 'wallet' && wallet && <SavedCards amount={amount} orders={orders} onChange={() => load().catch(() => {})} />}
       {tab === 'orders' && (
         <div className="grid">{orders.length === 0 && <p className="muted">{t('orders.empty')}</p>}
           {orders.map((o) => (

@@ -37,3 +37,13 @@ class ClickEvent(models.Model):
     result = models.IntegerField()
     raw = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class SavedCard(models.Model):
+    """A bank card tokenised by Click (Merchant API card_token). We never store or log the card number or expiry:
+    only Click's token and the masked number Click returns. Charged on demand ("one-click" payment)."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='cards')
+    token = models.CharField(max_length=100, unique=True)
+    masked = models.CharField(max_length=24, blank=True)          # e.g. 8600 **** **** 1234
+    verified = models.BooleanField(default=False)                 # true after the SMS code from Click is confirmed
+    created_at = models.DateTimeField(auto_now_add=True)

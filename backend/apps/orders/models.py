@@ -31,6 +31,9 @@ class Order(models.Model):
     amount_due_online = models.DecimalField(max_digits=16, decimal_places=2)
     amount_paid = models.DecimalField(max_digits=16, decimal_places=2, default=Decimal('0'))
     commission_total = models.DecimalField(max_digits=16, decimal_places=2, default=Decimal('0'))
+    buyer_type = models.CharField(max_length=10, default='individual')   # individual | legal
+    buyer_inn = models.CharField(max_length=9, blank=True)               # legal entity only
+    buyer_name = models.CharField(max_length=200, blank=True)            # legal entity only
     created_at = models.DateTimeField(auto_now_add=True)
 
 

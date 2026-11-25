@@ -19,7 +19,7 @@ function Cabinet() {
     return <div className="card"><h1>{t('seller.cabinet')}</h1>
       <p>{me.status === 'blocked' ? t('seller.blocked') : t('seller.pending')}</p></div>;
   }
-  const tabs = ['import', 'offers', 'delivery', 'files', 'orders', 'analytics', 'profile'];
+  const tabs = ['import', 'offers', 'delivery', 'files', 'orders', 'invoices', 'analytics', 'profile'];
   return (
     <>
       <h1>{t('seller.cabinet')}</h1>
@@ -30,9 +30,37 @@ function Cabinet() {
       {tab === 'delivery' && <Delivery />}
       {tab === 'files' && <Files />}
       {tab === 'orders' && <Orders />}
+      {tab === 'invoices' && <Invoices />}
       {tab === 'analytics' && <Analytics />}
       {tab === 'profile' && <Profile me={me} onSaved={setMe} />}
     </>
+  );
+}
+
+/** Data for the seller's own e-invoice to the client: BMG assembles it, the seller checks, confirms and signs it
+ * at the e-invoice operator. Sellers never see BMG's tax accounting. */
+function Invoices() {
+  const t = useT();
+  const lang = useLang();
+  const [rows, setRows] = useState<any[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const load = useCallback(() => api('/api/v1/sellers/me/invoices').then(setRows).catch((e) => setErr(e.error)), []);
+  useEffect(() => { load(); }, [load]);
+  async function confirmDoc(id: number) {
+    setErr(null);
+    try { await api(`/api/v1/sellers/me/invoices/${id}/confirm`, { body: {} }); load(); } catch (e: any) { setErr(e.error); }
+  }
+  return (
+    <div className="card table-wrap"><p className="muted small">{t('seller.inv.hint')}</p><ErrorText code={err} />
+      {rows && rows.length === 0 && <p className="muted">{t('seller.inv.none')}</p>}
+      {rows && rows.length > 0 && <table><thead><tr><th>{t('acc.number')}</th><th>{t('order.number')}</th><th>{t('seller.inv.buyer')}</th><th>{t('acc.base')}</th><th>{t('acc.vat')}</th><th>{t('acc.total')}</th><th /></tr></thead>
+        <tbody>{rows.map((d) => (
+          <tr key={d.id}><td>{d.number}<div className="muted small">{d.date}</div></td><td>#{d.order_id}</td>
+            <td>{d.client?.type === 'legal' ? `${d.client.name} · ${d.client.inn}` : t('seller.inv.individual')}</td>
+            <td>{money(d.base, lang)}</td><td>{money(d.vat, lang)} ({d.vat_rate}%)</td><td><b>{money(d.total, lang)}</b></td>
+            <td>{d.status === 'draft' ? <button className="btn small" onClick={() => confirmDoc(d.id)}>{t('seller.inv.confirm')}</button>
+              : <span className={`tag ${d.status === 'posted' ? 'ok' : 'bad'}`}>{t(`acc.doc.${d.status}`)}</span>}</td></tr>))}</tbody></table>}
+    </div>
   );
 }
 
@@ -241,7 +269,9 @@ function Analytics() {
 
 function Profile({ me, onSaved }: { me: any; onSaved: (m: any) => void }) {
   const t = useT();
-  const [f, setF] = useState({ company_name: me.company_name, description: me.description, contact_phone: me.contact_phone });
+  const [f, setF] = useState({ company_name: me.company_name, description: me.description, contact_phone: me.contact_phone,
+    inn: me.inn || '', bank_account: me.bank_account || '', bank_mfo: me.bank_mfo || '', bank_name: me.bank_name || '' });
+  const bank: [keyof typeof f, number][] = [['inn', 9], ['bank_account', 24], ['bank_mfo', 5], ['bank_name', 120]];
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
   async function save() {
@@ -253,6 +283,11 @@ function Profile({ me, onSaved }: { me: any; onSaved: (m: any) => void }) {
       <div className="field"><label htmlFor="cn">{t('login.company')}</label><input id="cn" value={f.company_name} onChange={(e) => setF({ ...f, company_name: e.target.value })} /></div>
       <div className="field"><label htmlFor="cp">{t('seller.contact_phone')}</label><input id="cp" value={f.contact_phone} onChange={(e) => setF({ ...f, contact_phone: e.target.value })} /></div>
       <div className="field"><label htmlFor="cd">{t('seller.description')}</label><textarea id="cd" value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></div>
+      <h3>{t('seller.bank')}</h3>
+      <p className="muted small">{t('seller.bank_note')}</p>
+      <div className="row">{bank.map(([k, n]) => (
+        <div key={k}><label htmlFor={`b-${k}`}>{t(`seller.${k}`)}</label>
+          <input id={`b-${k}`} maxLength={n} inputMode={k === 'bank_name' ? 'text' : 'numeric'} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></div>))}</div>
       <p className="muted small">{t('seller.commission')}: {me.commission_percent}%</p>
       <button className="btn" onClick={save}>{t('save')}</button>{ok && <span className="ok"> ✓</span>}<ErrorText code={err} />
     </div>

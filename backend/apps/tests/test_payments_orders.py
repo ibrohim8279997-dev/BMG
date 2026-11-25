@@ -160,7 +160,7 @@ class OrderFlow(Base):
         self.assertEqual(r['delivery_total'], '1000.00')
         self.assertEqual(r['total'], '101000.00')
         self.assertEqual(r['prepayment'], '5050.00')              # 5% of order
-        self.assertEqual(Order.objects.get().commission_total, Decimal('10000.00'))   # 10% default, goods only
+        self.assertEqual(Order.objects.get().commission_total, Decimal('3000.00'))    # 3% default agent fee, goods only
         self.o.refresh_from_db()
         self.assertEqual(self.o.stock, 40)
 
@@ -242,9 +242,9 @@ class OrderFlow(Base):
         self.login(self.s.user)
         self.assertEqual(self.api.post(f'/api/v1/sellers/me/orders/{oid}/fulfill').status_code, 200)
         self.assertEqual(Order.objects.get().status, 'completed')
-        self.assertEqual(SellerLedger.objects.get().amount, Decimal('91000.00'))   # 100000 + 1000 - 10000
+        self.assertEqual(SellerLedger.objects.get().amount, Decimal('98000.00'))   # 100000 + 1000 - 3000
         a = self.api.get('/api/v1/sellers/me/analytics').json()
-        self.assertEqual((a['revenue'], a['margin'], a['payable_balance']), ('100000.00', '40000.00', '91000.00'))
+        self.assertEqual((a['revenue'], a['margin'], a['payable_balance']), ('100000.00', '40000.00', '98000.00'))
 
     def test_analytics_without_cost_has_no_margin(self):
         s = self.seller(); o = self.offer(s, name='NoCost')
@@ -258,8 +258,22 @@ class OrderFlow(Base):
         self.login(self.s.user)
         self.api.post(f'/api/v1/sellers/me/orders/{oid}/fulfill')
         self.assertEqual(self.api.post('/api/v1/sellers/me/payouts', {'amount': '999999'}, format='json').status_code, 400)
-        self.assertEqual(self.api.post('/api/v1/sellers/me/payouts', {'amount': '91000'}, format='json').status_code, 201)
+        # bank details are required first (they go into the bank payment registry)
+        self.assertEqual(self.api.post('/api/v1/sellers/me/payouts', {'amount': '98000'}, format='json').data['error'],
+                         'bank_details_required')
+        self.assertEqual(self.api.patch('/api/v1/sellers/me', {'bank_account': '123'}, format='json').status_code, 400)
+        self.assertEqual(self.api.patch('/api/v1/sellers/me', {'inn': '123456789', 'bank_account': '2020 8000 0000 0000 0001',
+                                        'bank_mfo': '00014', 'bank_name': '=HYPERLINK()'}, format='json').status_code, 200)
+        self.assertEqual(self.api.post('/api/v1/sellers/me/payouts', {'amount': '98000'}, format='json').status_code, 201)
         self.assertEqual(self.api.post('/api/v1/sellers/me/payouts', {'amount': '1'}, format='json').status_code, 400)
+        staff = self.user('staff')
+        staff.is_staff = staff.is_superuser = True
+        staff.save()
+        self.login(staff)
+        from apps.adminpanel.reports import EXPORTS
+        header, rows = EXPORTS['payout-registry']
+        row = dict(zip(header, list(rows())[0]))
+        self.assertEqual((row['inn'], row['bank_account'], row['amount']), ('123456789', '20208000000000000001', Decimal('98000')))
 
     # ---- refunds
     def staff(self):
@@ -287,7 +301,7 @@ class OrderFlow(Base):
         r = osvc.refund_order(oid, 'seller', self.staff())
         self.assertEqual(r.amount, Decimal('101000.00'))                      # everything, incl. prepayment
         from django.db.models import Sum
-        self.assertEqual(SellerLedger.objects.filter(seller=self.s).aggregate(s=Sum('amount'))['s'], Decimal('-10000.00'))
+        self.assertEqual(SellerLedger.objects.filter(seller=self.s).aggregate(s=Sum('amount'))['s'], Decimal('-3000.00'))
 
     def test_client_fault_not_allowed_after_completion(self):
         oid = self.paid_order()
@@ -309,3 +323,36 @@ class OrderFlow(Base):
         self.cart(1); oid = self.order().json()['id']
         with self.assertRaises(osvc.OrderError):
             osvc.refund_order(oid, 'bmg', self.staff())
+
+
+class CashCommissionTests(Base):
+    def _cash_order(self, pct):
+        from apps.core.models import Setting
+        from apps.orders import services as svc
+        from apps.orders.models import CartItem
+        if pct is not None:
+            Setting.objects.update_or_create(key='cash_commission_percent', defaults={'value': pct})
+        s = self.seller()
+        o = self.offer(s, price=10000)
+        c = self.user()
+        CartItem.objects.create(user=c, offer=o, qty=Decimal(3))
+        order = svc.create_order(c, 'Tashkent', 'cash')
+        from apps.payments import wallet
+        wallet.change(c, order.amount_due_online, 'topup')
+        svc.pay_order(c, order.id)
+        svc.fulfill(order.id, s)
+        return s, order
+
+    def test_default_zero_books_nothing(self):
+        from apps.orders.models import SellerLedger
+        s, _ = self._cash_order(None)
+        self.assertFalse(SellerLedger.objects.filter(seller=s).exists())
+
+    def test_cash_commission_becomes_seller_debt_and_revenue(self):
+        from apps.adminpanel.reports import bmg_revenue
+        from apps.orders.models import SellerLedger
+        s, order = self._cash_order(4)
+        e = SellerLedger.objects.get(seller=s)
+        self.assertEqual((e.kind, e.amount), ('cash_comm', Decimal('-1200.00')))   # 4% of 30000 goods, not delivery
+        order.refresh_from_db()
+        self.assertEqual(bmg_revenue(order), order.prepayment + Decimal('1200'))

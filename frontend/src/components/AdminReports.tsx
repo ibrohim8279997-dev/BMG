@@ -128,7 +128,7 @@ export function Content({ t }: { t: T }) {
   );
 }
 
-const KINDS = ['orders', 'payments', 'commissions', 'refunds', 'seller-ledger', 'client-balances'];
+const KINDS = ['orders', 'payments', 'commissions', 'refunds', 'seller-ledger', 'payout-registry', 'client-balances'];
 export function Reports({ t }: { t: T }) {
   return (
     <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))' }}>
@@ -136,64 +136,6 @@ export function Reports({ t }: { t: T }) {
         <div className="card" key={k}><h3>{t(`admin.export.${k}`)}</h3>
           <a className="btn ghost small" href={`/admin-api/export/${k}`} download>{t('admin.export')}</a></div>))}
     </div>
-  );
-}
-
-// ---------- tax accounting package (switch) ----------
-
-const lastMonth = () => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
-
-export function Accounting({ t }: { t: T }) {
-  const lang = useLang();
-  const [month, setMonth] = useState(lastMonth());
-  const [rows, setRows] = useState<any[] | null>(null);
-  const [vat, setVat] = useState<any>(null);
-  const [off, setOff] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [note, setNote] = useState('');
-  const load = useCallback(async () => {
-    setErr(null);
-    try {
-      setRows(await api(`/admin-api/accounting/invoices?month=${month}`));
-      setVat(await api(`/admin-api/accounting/vat?month=${month}`));
-      setOff(false);
-    } catch (e: any) { if (e.status === 404) setOff(true); else setErr(e.error); }
-  }, [month]);
-  useEffect(() => { load(); }, [load]);
-  async function act(path: string, body: any = {}) {
-    setErr(null); setNote('');
-    try { const r = await api(path, { body }); if (typeof r?.created === 'number') setNote(t('admin.created_n', { n: r.created })); await load(); }
-    catch (e: any) { setErr(e.error); }
-  }
-  async function enable() { try { await api('/admin-api/settings', { method: 'PUT', body: { tax_accounting_enabled: true } }); await load(); } catch (e: any) { setErr(e.error); } }
-  if (off) return <div className="card"><p>{t('admin.tax_off')}</p><button className="btn" onClick={enable}>{t('admin.tax_enable')}</button><ErrorText code={err} /></div>;
-  return (
-    <>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <p className="notice" style={{ marginTop: 0 }}>{t('admin.tax_note')}</p>
-        <div className="row"><div><label htmlFor="mo">{t('admin.month')}</label><input id="mo" type="month" value={month} max={lastMonth()} onChange={(e) => setMonth(e.target.value)} /></div>
-          <div style={{ flex: '0 0 auto' }}><button className="btn" onClick={() => act('/admin-api/accounting/invoices/generate', { month })}>{t('admin.generate_invoices')}</button></div>
-          <div style={{ flex: '0 0 auto' }}><a className="btn ghost" href="/admin-api/export/invoices" download>{t('admin.export')}</a></div></div>
-        {note && <p className="ok">{note}</p>}<ErrorText code={err} />
-      </div>
-      {vat && (
-        <div className="kpis">
-          <div className="card kpi"><small>{t('admin.taxable_base')}</small><b>{money(vat.taxable_base, lang)}</b></div>
-          <div className="card kpi"><small>{t('admin.output_vat')} ({vat.vat_rate}%)</small><b>{money(vat.output_vat, lang)}</b></div>
-          <div className="card kpi"><small>{t('admin.drafts_not_counted')}</small><b>{vat.drafts_not_counted}</b></div>
-          <div className="card kpi"><small>{t('admin.cash_prepay')}</small><b>{money(vat.cash_prepayments_unclassified, lang)}</b></div>
-        </div>)}
-      <div className="card table-wrap">
-        <table><thead><tr><th>{t('admin.invoice.number')}</th><th>{t('admin.seller')}</th><th>{t('admin.invoice.gross')}</th><th>{t('admin.invoice.vat')}</th><th>{t('admin.invoice.net')}</th><th>{t('admin.status')}</th><th /></tr></thead>
-          <tbody>{rows?.map((i) => (
-            <tr key={i.id}><td>{i.number || '—'}</td><td>{i.seller}</td><td>{money(i.gross, lang)}</td><td>{money(i.vat_amount, lang)}</td><td>{money(i.net, lang)}</td>
-              <td><span className={`tag ${i.status === 'sent_to_tax' ? 'ok' : i.status === 'void' ? 'bad' : ''}`}>{t(`admin.invoice.status.${i.status}`)}</span>{i.tax_ref && <div className="muted small">{i.tax_ref}</div>}</td>
-              <td className="actions" style={{ margin: 0 }}>
-                {i.status === 'draft' && <button className="btn small" onClick={() => act(`/admin-api/accounting/invoices/${i.id}/issue`)}>{t('admin.invoice.issue')}</button>}
-                {i.status === 'issued' && <button className="btn small" onClick={() => { const r = prompt(t('admin.invoice.ref_prompt')); if (r) act(`/admin-api/accounting/invoices/${i.id}/sent`, { tax_ref: r }); }}>{t('admin.invoice.sent')}</button>}
-                {(i.status === 'draft' || i.status === 'issued') && <button className="btn ghost small" onClick={() => confirm(t('admin.invoice.void_confirm')) && act(`/admin-api/accounting/invoices/${i.id}/void`)}>{t('admin.invoice.void')}</button>}</td></tr>))}</tbody></table>
-      </div>
-    </>
   );
 }
 

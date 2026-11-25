@@ -200,13 +200,16 @@ class Levels(AdminBase):
 
 class Roles(AdminBase):
     required_perm = 'roles'
-    ALL = ['sellers', 'roles', 'support', 'audit', 'settings', 'orders', 'refunds', 'finance', 'documents', 'catalog']
+    ALL = ['sellers', 'roles', 'support', 'audit', 'settings', 'orders', 'refunds', 'finance', 'accounting', 'documents',
+           'catalog']
 
     def get(self, request):
         return Response({'all_permissions': self.ALL, 'roles': [
             {'id': r.id, 'name': r.name, 'permissions': r.permissions} for r in StaffRole.objects.all()]})
 
     def post(self, request):
+        if not request.user.is_superuser:      # roles are granted only by the superadmin
+            return Response({'error': 'forbidden'}, status=403)
         perms = request.data.get('permissions', [])
         name = str(request.data.get('name', '')).strip()[:60]
         if not name or not isinstance(perms, list) or not set(perms) <= set(self.ALL):
@@ -307,16 +310,16 @@ class Audit(AdminBase):
 
 
 SETTING_TYPES = {'prepayment_percent': (int, float), 'prepayment_min_order_sum': (int, float),
-                 'prepayment_cash_percent': (int, float), 'seller_identity_check': (bool,),
-                 'default_commission_percent': (int, float), 'large_object_area': (int, float),
-                 'bypass_check_days': (int,), 'support_phone': (str,), 'support_telegram': (str,), 'support_email': (str,), 'tax_accounting_enabled': (bool,), 'vat_rate': (int, float)}
+                 'prepayment_cash_percent': (int, float), 'cash_commission_percent': (int, float), 'seller_identity_check': (bool,),
+                 'large_object_area': (int, float),
+                 'bypass_check_days': (int,), 'support_phone': (str,), 'support_telegram': (str,), 'support_email': (str,)}
 
 
 class Settings(AdminBase):
     required_perm = 'settings'
 
     def get(self, request):
-        return Response({k: Setting.get(k) for k in Setting.DEFAULTS})
+        return Response({k: Setting.get(k) for k in SETTING_TYPES})
 
     def put(self, request):
         for k, v in request.data.items():
@@ -328,10 +331,13 @@ class Settings(AdminBase):
                     return Response({'error': 'invalid_request', 'field': k}, status=400)
             elif types != (bool,) and not 0 <= v <= (100 if 'percent' in k or k == 'vat_rate' else 10**12):
                 return Response({'error': 'invalid_request', 'field': k}, status=400)
+        before = {k: Setting.get(k) for k in request.data}
         for k, v in request.data.items():
             Setting.objects.update_or_create(key=k, defaults={'value': v})
-        audit(request, 'settings_changed', fields=list(request.data.keys()))
-        return Response({k: Setting.get(k) for k in Setting.DEFAULTS})
+        changed = [k for k in request.data if before[k] != request.data[k]]
+        audit(request, 'settings_changed', fields=list(request.data.keys()),
+              before={k: before[k] for k in changed}, after={k: request.data[k] for k in changed})
+        return Response({k: Setting.get(k) for k in SETTING_TYPES})
 
 
 class AdminOrders(AdminBase):
@@ -369,6 +375,9 @@ class Payouts(AdminBase):
         p = get_object_or_404(PayoutRequest.objects.select_for_update(), pk=pk, status='requested')
         action = request.data.get('action')
         if action == 'pay':
+            # the payable may already have been paid deal by deal from the accounting section: never pay twice
+            if (SellerLedger.objects.filter(seller=p.seller).aggregate(s=Sum('amount'))['s'] or 0) < p.amount:
+                return Response({'error': 'insufficient_funds'}, status=400)
             SellerLedger.objects.create(seller=p.seller, kind='payout', amount=-p.amount)
             p.status = 'paid'
         elif action == 'reject':

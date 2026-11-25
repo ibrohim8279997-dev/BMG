@@ -13,6 +13,7 @@ urlpatterns = [
     path('api/v1/', include('apps.payments.urls')),
     path('api/v1/', include('apps.orders.urls')),
     path('api/v1/', include('apps.support.urls')),
+    path('api/v1/', include('apps.accounting.urls')),
     path('api/v1/legal/<slug:slug>', core.LegalView.as_view()),
     path('api/v1/config', core.PublicConfig.as_view()),
     path('admin-api/', include('apps.adminpanel.urls')),

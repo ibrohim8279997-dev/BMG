@@ -39,16 +39,25 @@ test('every static t("key") used in code exists', () => {
 test('every dynamic t(`prefix.${x}`) has entries for known values', () => {
   const expect = {
     'account.': ['wallet', 'orders', 'complaint', 'reviews'],
-    'admin.tab.': ['sellers', 'commission', 'settings', 'complaints', 'audit', 'orders', 'payouts', 'roles', 'analytics', 'quality', 'flags', 'reviews', 'content', 'reports', 'accounting', 'model'],
+    'admin.tab.': ['home', 'applications', 'sellers', 'commission', 'settings', 'complaints', 'audit', 'orders', 'payouts', 'roles', 'analytics', 'quality', 'flags', 'reviews', 'content', 'reports', 'accounting', 'model'],
     'fault.': ['client', 'seller', 'bmg'], 'files.': ['document', 'photo'],
     'home.step': ['1.t', '1.d', '2.t', '2.d', '3.t', '3.d'],
     'import.err.': ['name_required', 'price_invalid', 'stock_required', 'category_required'],
     'import.field.': ['name', 'price', 'stock', 'category', 'unit', 'cost_price'],
     'ledger.': ['topup', 'order_payment', 'refund'], 'order.mode_': ['full', 'cash'],
-    'seller.tab.': ['import', 'offers', 'delivery', 'files', 'orders', 'analytics', 'profile'],
-    'setting.': ['prepayment_percent', 'prepayment_min_order_sum', 'prepayment_cash_percent', 'seller_identity_check', 'default_commission_percent', 'large_object_area', 'bypass_check_days', 'support_phone', 'support_telegram', 'support_email', 'tax_accounting_enabled', 'vat_rate'],
+    'seller.tab.': ['import', 'offers', 'delivery', 'files', 'orders', 'invoices', 'analytics', 'profile'],
+    'setting.': ['prepayment_percent', 'prepayment_min_order_sum', 'prepayment_cash_percent', 'cash_commission_percent', 'seller_identity_check', 'default_commission_percent', 'large_object_area', 'bypass_check_days', 'support_phone', 'support_telegram', 'support_email'],
     'status.': ['pending_payment', 'paid', 'completed', 'cancelled'], 'type.': ['apartment', 'house', 'complex'],
     'zone.': ['walls', 'floor', 'ceiling', 'roof'],
+    'admin.group.': ['main', 'people', 'money', 'accounting', 'support', 'system'],
+    'admin.desc.': ['home', 'sellers', 'applications', 'commission', 'quality', 'flags', 'orders', 'payouts', 'analytics', 'reports', 'model', 'accounting', 'complaints', 'reviews', 'content', 'settings', 'roles', 'audit'],
+    'admin.perm.': ['sellers', 'roles', 'support', 'audit', 'settings', 'orders', 'refunds', 'finance', 'accounting', 'documents', 'catalog'],
+    'acc.sub.': ['summary', 'deals', 'documents', 'reconcile', 'parties', 'settings'],
+    'acc.deal.': ['paid', 'delivered', 'confirmed', 'paid_out', 'refunded'],
+    'acc.kind.': ['commission', 'seller_inv', 'act', 'registry', 'storno'], 'acc.doc.': ['draft', 'posted', 'reversed'],
+    'acc.contract.': ['none', 'pending', 'confirmed', 'terminated'],
+    'acc.set.': ['default_commission_percent', 'vat_rate', 'brv_value', 'vat_threshold_brv', 'bmg_name', 'bmg_inn', 'bmg_address', 'bmg_bank_name', 'bmg_bank_account', 'bmg_bank_mfo'],
+    'acc.req.': ['company_name', 'inn', 'legal_address', 'bank_name', 'bank_account', 'bank_mfo', 'contract_number'],
   };
   const miss = [];
   for (const [p, vals] of Object.entries(expect)) for (const v of vals) if (!((p + v) in dicts.ru)) miss.push(p + v);

@@ -4,6 +4,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from django.db import transaction
 from django.db.models import F
 
+from apps.accounting import deals
 from apps.catalog.models import Offer
 from apps.core.models import Setting
 from apps.payments import wallet
@@ -28,10 +29,18 @@ class OrderError(Exception):
 
 
 @transaction.atomic
-def create_order(user, city, mode):
-    """Everything (prices, stock, delivery, fee) is computed here from the database, never from the client."""
+def create_order(user, city, mode, buyer=None):
+    """Everything (prices, stock, delivery, fee) is computed here from the database, never from the client.
+    buyer: {'type': 'individual'|'legal', 'inn', 'name'} - requisites for the seller's invoice (legal entities)."""
     if mode not in ('full', 'cash'):
         raise OrderError('invalid_request')
+    buyer = buyer or {}
+    btype = buyer.get('type') or 'individual'
+    binn, bname = str(buyer.get('inn') or '').strip(), str(buyer.get('name') or '').strip()[:200]
+    if btype not in ('individual', 'legal') or (btype == 'legal' and not (len(binn) == 9 and binn.isdigit() and bname)):
+        raise OrderError('invalid_buyer')
+    if btype == 'individual':
+        binn = bname = ''
     cart = list(CartItem.objects.filter(user=user).order_by('offer_id'))
     if not cart:
         raise OrderError('cart_empty')
@@ -41,7 +50,8 @@ def create_order(user, city, mode):
     items, goods, delivery_by_seller = [], Decimal('0'), {}
     for c in cart:
         o = offers[c.offer_id]
-        if not o.active or o.seller.status != 'approved' or o.stock < c.qty or c.qty <= 0:
+        # no orders for a seller whose agency contract BMG has not confirmed
+        if not o.active or o.seller.status != 'approved' or not o.seller.contract_ok or o.stock < c.qty or c.qty <= 0:
             raise OrderError('offer_unavailable')
         if o.seller_id not in delivery_by_seller:
             rule = next((r for r in o.seller.delivery_rules.all() if r.region.strip().lower() == city_l), None)
@@ -66,13 +76,15 @@ def create_order(user, city, mode):
     order = Order.objects.create(
         client=user, city=city, payment_mode=mode, goods_total=q(goods), delivery_total=q(delivery), total=total,
         prepayment=prepay, amount_due_online=due, commission_total=sum((i['commission_amount'] for i in items), Decimal('0')),
-        status='pending_payment' if due > 0 else 'paid')
+        status='pending_payment' if due > 0 else 'paid', buyer_type=btype, buyer_inn=binn, buyer_name=bname)
     for i in items:
         o = i['offer']
         o.stock -= i['qty']
         o.save(update_fields=['stock'])
         OrderItem.objects.create(order=order, **i)
     CartItem.objects.filter(user=user).delete()
+    if order.status == 'paid':
+        deals.create_deals(order)
     return order
 
 
@@ -88,6 +100,7 @@ def pay_order(user, order_id):
     order.amount_paid = order.amount_due_online
     order.status = 'paid'
     order.save(update_fields=['amount_paid', 'status'])
+    deals.create_deals(order)      # amounts are fixed now, with the settings in force today
     return order
 
 
@@ -99,7 +112,7 @@ def seller_gross(order, seller):
 
 @transaction.atomic
 def fulfill(order_id, seller):
-    """Seller marks own items delivered. Payable is credited only for online-paid orders."""
+    """Seller marks own items delivered. Online orders credit the payable; cash orders book the cash commission."""
     order = Order.objects.select_for_update().get(pk=order_id)
     if order.status != 'paid':
         raise OrderError('invalid_state')
@@ -109,8 +122,20 @@ def fulfill(order_id, seller):
     for i in items:
         i.fulfilled = True
         i.save(update_fields=['fulfilled'])
+    deal = deals.mark_delivered(order, seller)
     if order.payment_mode == 'full' and not any(i.credited for i in items):
-        SellerLedger.objects.create(seller=seller, kind='sale', amount=q(gross - commission), order=order)
+        payable = Decimal(deal.payout) if deal else q(gross - commission)   # the deal's fixed payout (VAT included)
+        SellerLedger.objects.create(seller=seller, kind='sale', amount=payable, order=order)
+        for i in items:
+            i.credited = True
+            i.save(update_fields=['credited'])
+    if order.payment_mode == 'cash' and not any(i.credited for i in items):
+        # cash goes straight to the seller; BMG's cash commission (a setting, 0 by default) becomes the seller's debt,
+        # netted from future online payouts. Delivery is never commissioned.
+        pct = Decimal(str(Setting.get('cash_commission_percent')))
+        fee = q(sum((i.line_total for i in items), Decimal('0')) * pct / 100)
+        if fee > 0:
+            SellerLedger.objects.create(seller=seller, kind='cash_comm', amount=-fee, order=order)
         for i in items:
             i.credited = True
             i.save(update_fields=['credited'])
@@ -159,6 +184,7 @@ def refund_order(order_id, fault, staff_user):
                 Offer.objects.filter(pk=i.offer_id).update(stock=F('stock') + i.qty)
     order.status = 'cancelled'
     order.save(update_fields=['status'])
+    deals.refund(order, staff_user)    # storno for every posted document, nothing deleted
     return Refund.objects.create(order=order, fault=fault, amount=amount, due_by=due, reserve_until=reserve,
                                  processed_by=staff_user)
 

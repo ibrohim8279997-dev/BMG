@@ -1,9 +1,12 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { ErrorText } from '@/components/Bits';
-import { Accounting, Analytics, Content, Flags, Model, Quality, Reports, ReviewsMod } from '@/components/AdminReports';
-import { useT } from '@/components/Providers';
-import { api } from '@/lib/api';
+import { Accounting, VatMeter } from '@/components/AdminAccounting';
+import { Analytics, Content, Flags, Model, Quality, Reports, ReviewsMod } from '@/components/AdminReports';
+import Icon from '@/components/Icon';
+import { useLang, useT } from '@/components/Providers';
+import { api, money } from '@/lib/api';
+import './admin.css';
 
 export default function AdminPage() {
   const t = useT();
@@ -41,36 +44,121 @@ function Login({ onDone }: { onDone: () => void }) {
   );
 }
 
-const ALL_TABS = [['sellers', 'sellers'], ['applications', 'sellers'], ['commission', 'sellers'], ['settings', 'settings'], ['complaints', 'support'],
-  ['audit', 'audit'], ['orders', 'orders'], ['payouts', 'finance'], ['roles', 'roles'],
-  ['analytics', 'finance'], ['reports', 'finance'], ['quality', 'sellers'], ['flags', 'sellers'], ['reviews', 'support'], ['content', 'catalog'], ['accounting', 'finance'], ['model', 'finance']];
+type Nav = [tab: string, perm: string, icon: string];
+const GROUPS: [string, Nav[]][] = [
+  ['main', [['home', '', 'grid']]],
+  ['people', [['sellers', 'sellers', 'users'], ['applications', 'sellers', 'file'], ['commission', 'sellers', 'chart'], ['quality', 'sellers', 'star'], ['flags', 'sellers', 'warn']]],
+  ['money', [['orders', 'orders', 'box'], ['payouts', 'finance', 'card'], ['analytics', 'finance', 'chart'], ['reports', 'finance', 'file'], ['model', 'finance', 'calc']]],
+  ['accounting', [['accounting', 'accounting', 'book']]],
+  ['support', [['complaints', 'support', 'chat'], ['reviews', 'support', 'star'], ['content', 'catalog', 'file']]],
+  ['system', [['settings', 'settings', 'gear'], ['roles', 'roles', 'shield'], ['audit', 'audit', 'shield']]],
+];
 
-function Panel({ me, onLogout, t }: { me: any; onLogout: () => void; t: (k: string) => string }) {
-  const can = (p: string) => me.permissions.includes('*') || me.permissions.includes(p);
-  const tabs = ALL_TABS.filter(([, p]) => can(p)).map(([n]) => n);
-  const [tab, setTab] = useState(tabs[0] || '');
+function badges(ov: any): Record<string, number> {
+  if (!ov) return {};
+  const a = ov.accounting || {};
+  return {
+    applications: ov.applications_new || 0, sellers: (ov.sellers_pending || 0) + (ov.contracts_unconfirmed || 0),
+    complaints: ov.complaints_new || 0, payouts: ov.payouts_requested || 0,
+    accounting: (a.to_confirm || 0) + (a.to_pay_out || 0) + (a.discrepancies || 0),
+  };
+}
+
+function Panel({ me, onLogout, t }: { me: any; onLogout: () => void; t: (k: string, v?: any) => string }) {
+  const can = (p: string) => !p || me.permissions.includes('*') || me.permissions.includes(p);
+  const groups = GROUPS.map(([g, items]) => [g, items.filter(([, p]) => can(p))] as [string, Nav[]]).filter(([, i]) => i.length);
+  const tabs = groups.flatMap(([, i]) => i.map(([x]) => x));
+  const [tab, setTabState] = useState('home');
+  const [ov, setOv] = useState<any>(null);
+  const loadOv = useCallback(() => api('/admin-api/overview').then(setOv).catch(() => setOv(null)), []);
+  useEffect(() => {
+    const fromHash = () => { const h = window.location.hash.slice(1); setTabState(tabs.includes(h) ? h : 'home'); };
+    fromHash();
+    loadOv();
+    window.addEventListener('hashchange', fromHash);
+    return () => window.removeEventListener('hashchange', fromHash);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const setTab = (x: string) => {
+    if (window.location.hash !== `#${x}`) window.history.pushState(null, '', `#${x}`);
+    setTabState(x); if (x === 'home') loadOv(); window.scrollTo({ top: 0 });
+  };
+  const b = badges(ov);
+  return (
+    <div className="adm">
+      <aside className="adm-side" aria-label={t('admin.title')}>
+        <div className="adm-brand"><span className="adm-avatar" aria-hidden>{String(me.username || '?').slice(0, 1)}</span>
+          <div><b>{me.username}</b><small>{me.superuser ? t('admin.superadmin') : t('admin.staff')}</small></div></div>
+        {groups.map(([g, items]) => (
+          <nav className="adm-group" key={g} aria-label={t(`admin.group.${g}`)}>
+            {g !== 'main' && <h4>{t(`admin.group.${g}`)}</h4>}
+            {items.map(([x, , icon]) => (
+              <button key={x} className={`adm-link ${tab === x ? 'on' : ''}`} aria-current={tab === x ? 'page' : undefined} onClick={() => setTab(x)}>
+                <Icon name={icon} /><span className="lbl">{t(`admin.tab.${x}`)}</span>{b[x] ? <span className="adm-badge">{b[x]}</span> : null}
+              </button>))}
+          </nav>))}
+        <button className="btn ghost small" onClick={onLogout}><Icon name="logout" />{t('nav.logout')}</button>
+      </aside>
+      <section className="adm-main">
+        <div className="adm-mobile-nav">
+          <select aria-label={t('admin.title')} value={tab} onChange={(e) => setTab(e.target.value)}>
+            {groups.map(([g, items]) => <optgroup key={g} label={t(`admin.group.${g}`)}>{items.map(([x]) => <option key={x} value={x}>{t(`admin.tab.${x}`)}{b[x] ? ` (${b[x]})` : ''}</option>)}</optgroup>)}
+          </select>
+        </div>
+        <header className="adm-head"><div><h1>{t(`admin.tab.${tab}`)}</h1><p>{t(`admin.desc.${tab}`)}</p></div>
+          <button className="btn ghost small adm-mobile-nav" onClick={onLogout}>{t('nav.logout')}</button></header>
+        {tab === 'home' && <Home t={t} ov={ov} can={can} go={setTab} />}
+        {tab === 'sellers' && <Sellers t={t} />}
+        {tab === 'applications' && <Applications t={t} />}
+        {tab === 'commission' && <Levels t={t} />}
+        {tab === 'settings' && <SettingsTab t={t} />}
+        {tab === 'complaints' && <Complaints t={t} />}
+        {tab === 'audit' && <Audit t={t} />}
+        {tab === 'orders' && <Orders t={t} />}
+        {tab === 'payouts' && <Payouts t={t} />}
+        {tab === 'roles' && <Roles t={t} superuser={me.superuser} />}
+        {tab === 'analytics' && <Analytics t={t} />}
+        {tab === 'reports' && <Reports t={t} />}
+        {tab === 'quality' && <Quality t={t} />}
+        {tab === 'flags' && <Flags t={t} />}
+        {tab === 'reviews' && <ReviewsMod t={t} />}
+        {tab === 'content' && <Content t={t} />}
+        {tab === 'accounting' && <Accounting t={t} />}
+        {tab === 'model' && <Model t={t} />}
+      </section>
+    </div>
+  );
+}
+
+/** Start page: one look shows what needs a human and where to click. */
+function Home({ t, ov, can, go }: { t: any; ov: any; can: (p: string) => boolean; go: (x: string) => void }) {
+  const lang = useLang();
+  if (!ov) return <p className="muted">…</p>;
+  const a = ov.accounting || {};
+  const todo: [string, number | undefined, string][] = [
+    ['applications_new', ov.applications_new, 'applications'], ['sellers_pending', ov.sellers_pending, 'sellers'],
+    ['contracts_unconfirmed', ov.contracts_unconfirmed, 'accounting'], ['complaints_new', ov.complaints_new, 'complaints'],
+    ['payouts_requested', ov.payouts_requested, 'payouts'], ['to_confirm', a.to_confirm, 'accounting'],
+    ['to_pay_out', a.to_pay_out, 'accounting'], ['discrepancies', a.discrepancies, 'accounting'],
+    ['seller_invoices_unconfirmed', a.seller_invoices_unconfirmed, 'accounting'],
+  ];
+  const shown = todo.filter(([, n]) => n !== undefined).sort((x, y) => Number((y[1] || 0) > 0) - Number((x[1] || 0) > 0));
+  const hot = shown.filter(([, n]) => (n || 0) > 0);
+  const th = ov.vat_threshold;
   return (
     <>
-      <div className="row" style={{ alignItems: 'center' }}><h1>{t('admin.title')}</h1>
-        <div style={{ flex: '0 0 auto' }}><button className="btn ghost" onClick={onLogout}>{t('nav.logout')}</button></div></div>
-      <div className="tabs">{tabs.map((x) => <button key={x} className={`btn ${tab === x ? 'on' : ''}`} onClick={() => setTab(x)}>{t(`admin.tab.${x}`)}</button>)}</div>
-      {tab === 'sellers' && <Sellers t={t} />}
-      {tab === 'applications' && <Applications t={t} />}
-      {tab === 'commission' && <Levels t={t} />}
-      {tab === 'settings' && <SettingsTab t={t} />}
-      {tab === 'complaints' && <Complaints t={t} />}
-      {tab === 'audit' && <Audit t={t} />}
-      {tab === 'orders' && <Orders t={t} />}
-      {tab === 'payouts' && <Payouts t={t} />}
-      {tab === 'roles' && <Roles t={t} />}
-      {tab === 'analytics' && <Analytics t={t} />}
-      {tab === 'reports' && <Reports t={t} />}
-      {tab === 'quality' && <Quality t={t} />}
-      {tab === 'flags' && <Flags t={t} />}
-      {tab === 'reviews' && <ReviewsMod t={t} />}
-      {tab === 'content' && <Content t={t} />}
-      {tab === 'accounting' && <Accounting t={t} />}
-      {tab === 'model' && <Model t={t} />}
+      <h3>{t('admin.home.todo')}</h3>
+      {hot.length === 0 && <p className="adm-allclear"><Icon name="check" />{t('admin.home.all_clear')}</p>}
+      <div className="adm-todo">{shown.map(([k, n, target]) => (
+        <button key={k} className={(n || 0) > 0 ? 'hot' : ''} onClick={() => go(target)}><b>{n}</b><span>{t(`admin.home.${k}`)}</span>
+          <small>{t(`admin.tab.${target}`)} →</small></button>))}</div>
+      {can('orders') && ov.orders_30d !== undefined && (
+        <div className="kpis">
+          <div className="card kpi"><small>{t('admin.home.orders_30d')}</small><b>{ov.orders_30d}</b></div>
+          <div className="card kpi"><small>{t('admin.home.gmv_30d')}</small><b>{money(ov.gmv_30d, lang)}</b></div>
+          <div className="card kpi"><small>{t('admin.home.orders_paid')}</small><b>{ov.orders_paid}</b></div>
+        </div>)}
+      {th && <VatMeter t={t} th={th} />}
     </>
   );
 }
@@ -93,7 +181,7 @@ function Sellers({ t }: any) {
       <table><thead><tr><th>#</th><th>{t('login.company')}</th><th>{t('admin.status')}</th><th>{t('seller.commission')} %</th><th>{t('admin.docs')}</th><th /></tr></thead>
         <tbody>{rows?.map((s: any) => (
           <tr key={s.id}><td>{s.id}</td><td>{s.company_name}</td>
-            <td><span className={`tag ${s.status === 'approved' ? 'ok' : s.status === 'blocked' ? 'bad' : ''}`}>{s.status}</span></td>
+            <td><span className={`tag ${s.status === 'approved' ? 'ok' : s.status === 'blocked' ? 'bad' : ''}`}>{t(`admin.seller_status.${s.status}`)}</span></td>
             <td><input style={{ width: 80 }} defaultValue={s.commission_override ?? ''} placeholder={s.commission_percent}
               onBlur={(e) => patch(s.id, { commission_override: e.target.value })} aria-label="commission" /></td>
             <td>{s.documents}</td>
@@ -130,12 +218,12 @@ function SettingsTab({ t }: any) {
   }
   return (
     <div className="card"><ErrorText code={err} />
-      {Object.entries(vals).map(([k, v]) => (
+      <div className="adm-form">{Object.entries(vals).map(([k, v]) => (
         <div className="field" key={k}>
           {typeof v === 'boolean'
             ? <label className="check"><input type="checkbox" checked={v as boolean} onChange={(e) => setVals({ ...vals, [k]: e.target.checked })} /><span>{t(`setting.${k}`)}</span></label>
             : <><label htmlFor={k}>{t(`setting.${k}`)}</label><input id={k} type={typeof rows?.[k] === 'string' ? 'text' : 'number'} maxLength={100} value={v as any} onChange={(e) => setVals({ ...vals, [k]: e.target.value })} /></>}
-        </div>))}
+        </div>))}</div>
       <button className="btn" onClick={save}>{t('save')}</button></div>
   );
 }
@@ -159,10 +247,10 @@ function Applications({ t }: any) {
 function Complaints({ t }: any) {
   const { rows, load } = useList('/admin-api/complaints');
   return (
-    <div className="card table-wrap"><table><tbody>{rows?.map((c: any) => (
+    <div className="card table-wrap">{rows && rows.length === 0 && <p className="adm-empty">{t('admin.empty')}</p>}<table><tbody>{rows?.map((c: any) => (
       <tr key={c.id}><td>#{c.id}</td><td style={{ maxWidth: 380, whiteSpace: 'pre-wrap' }}>{c.text}</td><td>{c.order_id && `${t('order.number')} #${c.order_id}`}</td>
         <td><select value={c.status} onChange={async (e) => { await api(`/admin-api/complaints/${c.id}`, { method: 'PATCH', body: { status: e.target.value } }); load(); }}>
-          {['new', 'in_progress', 'resolved'].map((s) => <option key={s} value={s}>{s}</option>)}</select></td></tr>))}</tbody></table></div>
+          {['new', 'in_progress', 'resolved'].map((s) => <option key={s} value={s}>{t(`admin.complaint_status.${s}`)}</option>)}</select></td></tr>))}</tbody></table></div>
   );
 }
 
@@ -184,7 +272,7 @@ function Orders({ t }: any) {
   return (
     <div className="card table-wrap"><ErrorText code={err} /><table><thead><tr><th>#</th><th>{t('admin.status')}</th><th>{t('calc.total')}</th><th>{t('admin.paid')}</th><th>{t('admin.refund')}</th></tr></thead>
       <tbody>{rows?.map((o: any) => (
-        <tr key={o.id}><td>{o.id}</td><td>{o.status}</td><td>{o.total}</td><td>{o.amount_paid}</td>
+        <tr key={o.id}><td>{o.id}</td><td><span className={`tag ${o.status === 'completed' ? 'ok' : o.status === 'cancelled' ? 'bad' : ''}`}>{t(`status.${o.status}`)}</span></td><td className="n">{o.total}</td><td className="n">{o.amount_paid}</td>
           <td className="actions" style={{ margin: 0 }}>{o.amount_paid !== '0.00' && o.status !== 'cancelled' && ['client', 'seller', 'bmg'].map((f) =>
             <button key={f} className="btn ghost small" onClick={() => confirm(t('admin.refund_confirm')) && refund(o.id, f)}>{t(`fault.${f}`)}</button>)}</td></tr>))}</tbody></table></div>
   );
@@ -194,14 +282,14 @@ function Payouts({ t }: any) {
   const { rows, load } = useList('/admin-api/payouts');
   async function act(id: number, action: string) { await api(`/admin-api/payouts/${id}`, { body: { action } }); load(); }
   return (
-    <div className="card table-wrap"><table><tbody>{rows?.map((p: any) => (
-      <tr key={p.id}><td>#{p.id}</td><td>{t('admin.seller')} {p.seller_id}</td><td>{p.amount}</td><td>{p.status}</td>
+    <div className="card table-wrap">{rows && rows.length === 0 && <p className="adm-empty">{t('admin.empty')}</p>}<table><tbody>{rows?.map((p: any) => (
+      <tr key={p.id}><td>#{p.id}</td><td>{t('admin.seller')} #{p.seller_id}</td><td className="n">{p.amount}</td><td><span className={`tag ${p.status === 'paid' ? 'ok' : p.status === 'rejected' ? 'bad' : 'warn'}`}>{t(`admin.payout_status.${p.status}`)}</span></td>
         <td>{p.status === 'requested' && <><button className="btn small" onClick={() => act(p.id, 'pay')}>{t('admin.mark_paid')}</button>{' '}
           <button className="btn ghost small" onClick={() => act(p.id, 'reject')}>{t('admin.reject')}</button></>}</td></tr>))}</tbody></table></div>
   );
 }
 
-function Roles({ t }: any) {
+function Roles({ t, superuser }: any) {
   const { rows, err, load, setErr } = useList('/admin-api/roles');
   const [name, setName] = useState('');
   const [perms, setPerms] = useState<string[]>([]);
@@ -212,17 +300,18 @@ function Roles({ t }: any) {
   return (
     <div className="split">
       <div className="card"><h3>{t('admin.roles')}</h3><ErrorText code={err} />
-        {rows?.roles.map((r: any) => <p key={r.id}><b>{r.name}</b>: {r.permissions.join(', ') || '—'}</p>)}
+        {rows?.roles.map((r: any) => <p key={r.id}><b>{r.name}</b>: {r.permissions.map((p: string) => t(`admin.perm.${p}`)).join(', ') || '—'}</p>)}
         <input value={name} placeholder={t('admin.role_name')} onChange={(e) => setName(e.target.value)} />
         <div className="tabs">{rows?.all_permissions.map((p: string) => (
-          <label className="check" key={p}><input type="checkbox" checked={perms.includes(p)} onChange={(e) => setPerms(e.target.checked ? [...perms, p] : perms.filter((x) => x !== p))} />{p}</label>))}</div>
-        <button className="btn" disabled={!name} onClick={addRole}>{t('add')}</button></div>
+          <label className="check" key={p}><input type="checkbox" checked={perms.includes(p)} onChange={(e) => setPerms(e.target.checked ? [...perms, p] : perms.filter((x) => x !== p))} />{t(`admin.perm.${p}`)}</label>))}</div>
+        <button className="btn" disabled={!name || !superuser} onClick={addRole}>{t('add')}</button>
+        {!superuser && <p className="muted small">{t('admin.only_superadmin')}</p>}</div>
       <div className="card"><h3>{t('admin.new_staff')}</h3>
         <div className="field"><input value={staff.username} placeholder={t('admin.username')} onChange={(e) => setStaff({ ...staff, username: e.target.value })} /></div>
         <div className="field"><input type="password" value={staff.password} placeholder={t('admin.password')} autoComplete="new-password" onChange={(e) => setStaff({ ...staff, password: e.target.value })} /></div>
         <div className="field"><select value={staff.role_id} onChange={(e) => setStaff({ ...staff, role_id: e.target.value })}>
           <option value="">—</option>{rows?.roles.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
-        <button className="btn" onClick={addStaff}>{t('add')}</button>
+        <button className="btn" disabled={!superuser} onClick={addStaff}>{t('add')}</button>
         {created && <div className="notice"><p>{t('admin.shown_once')}</p><p style={{ wordBreak: 'break-all' }}>{created.totp_uri}</p><p>{created.backup_codes.join('  ')}</p></div>}</div>
     </div>
   );

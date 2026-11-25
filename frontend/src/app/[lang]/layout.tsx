@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { LANGS, getDict, isLang } from '@/i18n';
 import Providers from '@/components/Providers';
@@ -19,6 +20,9 @@ const heading = Manrope({ subsets: ['latin', 'cyrillic'], variable: '--font-head
 
 const display = Cormorant_Garamond({ subsets: ['latin', 'latin-ext', 'cyrillic'], variable: '--font-display-serif', display: 'swap', weight: ['400', '500', '600'], style: ['normal', 'italic'] });
 
+// Every page carries a per-request CSP nonce on its inline scripts, so pages are rendered per request (never prerendered).
+export const dynamic = 'force-dynamic';
+
 export function generateStaticParams() {
   return LANGS.map((lang) => ({ lang }));
 }
@@ -38,6 +42,7 @@ export default async function RootLayout({ children, params }: { children: React
   const { lang } = await params;
   if (!isLang(lang)) notFound();
   const dict = getDict(lang);
+  const nonce = (await headers()).get('x-nonce') || undefined;
   const cfg = await serverApi<{ phone: string; telegram: string; email: string }>('/api/v1/config');
   const contacts = [cfg?.phone, cfg?.telegram, cfg?.email].filter(Boolean) as string[];
   return (
@@ -47,7 +52,7 @@ export default async function RootLayout({ children, params }: { children: React
         <meta name="color-scheme" content="light dark" />
         <meta name="theme-color" content="#f3f0ea" media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content="#11100d" media="(prefers-color-scheme: dark)" />
-        <script dangerouslySetInnerHTML={{ __html: themeInit + modeInit }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeInit + modeInit }} />
       </head>
       <body>
         <Providers lang={lang} dict={dict}>

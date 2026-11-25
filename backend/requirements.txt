@@ -5,6 +5,8 @@ openpyxl>=3.1
 pyotp>=2.9
 Pillow>=10
 pypdf>=4
+reportlab>=4      # accounting PDFs (set PDF_FONT to a TTF with Cyrillic if the server has no DejaVu/Arial)
 requests>=2.31
 gunicorn>=22
 psycopg[binary]>=3.1
+redis>=5          # production cache for rate limits (CACHE_BACKEND=...RedisCache)

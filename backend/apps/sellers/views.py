@@ -39,8 +39,12 @@ def profile(s: Seller, private=False):
          'approved_at': s.approved_at}
     if private:
         d.update(status=s.status, commission_percent=str(s.commission_percent()),
-                 contact_phone=s.contact_phone)
+                 contact_phone=s.contact_phone, inn=s.inn, bank_account=s.bank_account, bank_mfo=s.bank_mfo,
+                 bank_name=s.bank_name)
     return d
+
+
+BANK_FIELDS = {'inn': 9, 'bank_account': 20, 'bank_mfo': 5}   # digits required
 
 
 class MyProfile(APIView):
@@ -60,6 +64,14 @@ class MyProfile(APIView):
             if not ph:
                 return Response({'error': 'invalid_phone'}, status=400)
             s.contact_phone = ph
+        for f, n in BANK_FIELDS.items():
+            if f in request.data:
+                v = str(request.data[f]).strip().replace(' ', '')
+                if v and not (v.isdigit() and len(v) == n):
+                    return Response({'error': 'invalid_request', 'field': f}, status=400)
+                setattr(s, f, v)
+        if 'bank_name' in request.data:
+            s.bank_name = str(request.data['bank_name']).strip()[:120]
         s.save()
         return Response(profile(s, private=True))
 

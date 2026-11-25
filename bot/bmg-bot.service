@@ -1,0 +1,22 @@
+# systemd unit for running the bot without Docker:
+#   sudo cp -r bot /opt/bmg-bot && cd /opt/bmg-bot && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+#   sudo cp .env.example /opt/bmg-bot/.env  (fill it in), then:
+#   sudo cp bmg-bot.service /etc/systemd/system/ && sudo systemctl enable --now bmg-bot
+[Unit]
+Description=BMG Telegram bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/bmg-bot
+EnvironmentFile=/opt/bmg-bot/.env
+ExecStart=/opt/bmg-bot/.venv/bin/python bot.py
+Restart=always
+RestartSec=5
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target

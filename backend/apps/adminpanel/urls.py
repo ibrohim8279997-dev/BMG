@@ -1,5 +1,6 @@
 from django.urls import path
 
+from . import accounting as a
 from . import finance as f
 from . import reports as r
 from . import views as v
@@ -36,9 +37,22 @@ urlpatterns = [
     path('reviews', r.AdminReviews.as_view()),
     path('reviews/<int:pk>', r.AdminReviews.as_view()),
     path('export/<slug:kind>', r.Export.as_view()),
-    path('accounting/invoices', f.Invoices.as_view()),
-    path('accounting/invoices/generate', f.InvoiceGenerate.as_view()),
-    path('accounting/invoices/<int:pk>/<slug:action>', f.InvoiceAction.as_view()),
-    path('accounting/vat', f.VatReport.as_view()),
+    path('overview', r.Overview.as_view()),
+    path('accounting/overview', a.Overview.as_view()),
+    path('accounting/deals', a.Deals.as_view()),
+    path('accounting/deals/<int:pk>/confirm', a.DealConfirm.as_view()),
+    path('accounting/payouts', a.PayOut.as_view()),
+    path('accounting/documents', a.Documents.as_view()),
+    path('accounting/documents/act', a.AgentAct.as_view()),
+    path('accounting/documents/<int:pk>', a.DocumentDetail.as_view()),
+    path('accounting/documents/<int:pk>/storno', a.DocumentStorno.as_view()),
+    path('accounting/documents/<int:pk>/einvoice-status', a.DocumentEinvoice.as_view()),
+    path('accounting/documents/<int:pk>/<slug:fmt>', a.DocumentFile.as_view()),
+    path('accounting/export/<slug:fmt>', a.Export.as_view()),
+    path('accounting/discrepancies', a.Discrepancies.as_view()),
+    path('accounting/discrepancies/<int:pk>/resolve', a.DiscrepancyResolve.as_view()),
+    path('accounting/settings', a.AccSettings.as_view()),
+    path('accounting/sellers', a.SellerRequisites.as_view()),
+    path('accounting/sellers/<int:pk>', a.SellerRequisites.as_view()),
     path('model', f.FinancialModel.as_view()),
 ]

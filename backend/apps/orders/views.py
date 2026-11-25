@@ -66,7 +66,9 @@ class Orders(APIView):
         if not city:
             return Response({'error': 'invalid_request'}, status=400)
         try:
-            o = svc.create_order(request.user, city, request.data.get('payment_mode', 'full'))
+            o = svc.create_order(request.user, city, request.data.get('payment_mode', 'full'),
+                                 buyer={'type': request.data.get('buyer_type'), 'inn': request.data.get('buyer_inn'),
+                                        'name': request.data.get('buyer_name')})
         except svc.OrderError as e:
             return Response({'error': e.code}, status=400)
         return Response(order_payload(o), status=201)
@@ -165,5 +167,8 @@ class SellerPayout(APIView):
             return Response({'error': 'invalid_request'}, status=400)
         if not amount.is_finite() or amount <= 0 or amount > avail:
             return Response({'error': 'insufficient_funds'}, status=400)
+        s = request.user.seller
+        if not (s.inn and s.bank_account and s.bank_mfo):
+            return Response({'error': 'bank_details_required'}, status=400)
         PayoutRequest.objects.create(seller=request.user.seller, amount=amount)
         return Response(status=201)

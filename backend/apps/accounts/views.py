@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 from apps.audit.models import log as audit
 from apps.core.utils import client_ip, throttle
 
-from . import google, telegram
+from . import captcha, google, telegram
 from .models import TelegramLink, User
 from .phone import normalize_phone
 from .services import LoginError, issue_code, peek_valid_code, verify_code
@@ -24,6 +24,47 @@ def user_payload(u):
     seller = getattr(u, 'seller', None)
     return {'id': u.id, 'phone': u.phone, 'role': u.role, 'language': u.language,
             'is_staff': u.is_staff, 'seller_status': seller.status if seller else None}
+
+
+def _lang(request):
+    return request.data.get('language') if request.data.get('language') in ('uz', 'ru', 'en') else 'ru'
+
+
+def registration_blocked(request, ip):
+    """Role + consents + per-IP limit; checked BEFORE a code is consumed. Returns a Response or None."""
+    if request.data.get('role') not in ('client', 'seller'):
+        return Response({'error': 'registration_required'}, status=422)
+    if not (request.data.get('accept_privacy') is True and request.data.get('accept_terms') is True):
+        return Response({'error': 'consent_required'}, status=422)
+    since = timezone.now() - timedelta(days=1)
+    if User.objects.filter(registration_ip=ip, date_joined__gte=since).count() >= settings.MAX_NEW_ACCOUNTS_PER_IP_PER_DAY:
+        return Response({'error': 'too_many_registrations'}, status=429)
+    if not captcha.verify(request.data.get('captcha'), ip):
+        return Response({'error': 'captcha_required'}, status=422)
+    return None
+
+
+def create_user(request, ip, **fields):
+    now = timezone.now()
+    role = request.data.get('role')
+    user = User.objects.create(role=role, registration_ip=ip, language=_lang(request),
+                               accepted_privacy_at=now, accepted_terms_at=now, **fields)
+    user.set_unusable_password()
+    user.save(update_fields=['password'])
+    if role == 'seller':
+        from apps.sellers.models import Seller
+        Seller.objects.create(user=user, company_name=str(request.data.get('company_name', ''))[:200])
+    return user
+
+
+def finish_login(request, user):
+    if user.is_staff:
+        return Response({'error': 'use_admin_login'}, status=403)
+    if not user.is_active:
+        return Response({'error': 'inactive'}, status=403)
+    request.session.cycle_key()
+    login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+    return Response(user_payload(user))
 
 
 class CsrfView(APIView):
@@ -78,42 +119,19 @@ class VerifyView(APIView):
         user = User.objects.filter(phone=phone).first()
         ip = client_ip(request)
         if user is None:
-            # registration needs role + consents; check BEFORE consuming the code
-            role = request.data.get('role')
+            # registration needs role + consents (+ captcha); check BEFORE consuming the code
             if not peek_valid_code(phone):
                 return Response({'error': 'invalid_code'}, status=400)
-            if role not in ('client', 'seller'):
-                return Response({'error': 'registration_required'}, status=422)
-            if not (request.data.get('accept_privacy') is True and request.data.get('accept_terms') is True):
-                return Response({'error': 'consent_required'}, status=422)
-            since = timezone.now() - timedelta(days=1)
-            if User.objects.filter(registration_ip=ip, date_joined__gte=since).count() \
-                    >= settings.MAX_NEW_ACCOUNTS_PER_IP_PER_DAY:
-                return Response({'error': 'too_many_registrations'}, status=429)
+            bad = registration_blocked(request, ip)
+            if bad:
+                return bad
         if not verify_code(phone, code):
             return Response({'error': 'invalid_code'}, status=400)
         if user is None:
-            now = timezone.now()
-            user = User.objects.create(
-                username=f'u{phone[1:]}', phone=phone, role=role, registration_ip=ip,
-                language=request.data.get('language') if request.data.get('language') in ('uz', 'ru', 'en') else 'ru',
-                accepted_privacy_at=now, accepted_terms_at=now)
-            user.set_unusable_password()
-            user.save(update_fields=['password'])
             link = TelegramLink.objects.filter(phone=phone).first()
-            if link:
-                user.telegram_id = link.telegram_id
-                user.save(update_fields=['telegram_id'])
-            if role == 'seller':
-                from apps.sellers.models import Seller
-                Seller.objects.create(user=user, company_name=str(request.data.get('company_name', ''))[:200])
-        if user.is_staff:
-            return Response({'error': 'use_admin_login'}, status=403)
-        if not user.is_active:
-            return Response({'error': 'inactive'}, status=403)
-        request.session.cycle_key()
-        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-        return Response(user_payload(user))
+            user = create_user(request, ip, username=f'u{phone[1:]}', phone=phone,
+                               telegram_id=link.telegram_id if link else None)
+        return finish_login(request, user)
 
 
 class ProvidersView(APIView):
@@ -122,7 +140,9 @@ class ProvidersView(APIView):
     authentication_classes = []
 
     def get(self, request):
-        return Response({'google_client_id': settings.GOOGLE_CLIENT_ID})
+        bot = settings.TELEGRAM_BOT_USERNAME
+        return Response({'google_client_id': settings.GOOGLE_CLIENT_ID, 'captcha_site_key': settings.TURNSTILE_SITE_KEY,
+                         'telegram_bot_url': f'https://t.me/{bot}' if bot and settings.BOT_API_SECRET else ''})
 
 
 class GoogleLoginView(APIView):
@@ -140,33 +160,12 @@ class GoogleLoginView(APIView):
             return Response({'error': 'invalid_code'}, status=400)
         user = User.objects.filter(google_sub=info['sub']).first()
         if user is None:
-            role = request.data.get('role')
-            if role not in ('client', 'seller'):
-                return Response({'error': 'registration_required'}, status=422)
-            if not (request.data.get('accept_privacy') is True and request.data.get('accept_terms') is True):
-                return Response({'error': 'consent_required'}, status=422)
             ip = client_ip(request)
-            since = timezone.now() - timedelta(days=1)
-            if User.objects.filter(registration_ip=ip, date_joined__gte=since).count() \
-                    >= settings.MAX_NEW_ACCOUNTS_PER_IP_PER_DAY:
-                return Response({'error': 'too_many_registrations'}, status=429)
-            now = timezone.now()
-            user = User.objects.create(
-                username=f'g{info["sub"]}', google_sub=info['sub'], email=info['email'], role=role, registration_ip=ip,
-                language=request.data.get('language') if request.data.get('language') in ('uz', 'ru', 'en') else 'ru',
-                accepted_privacy_at=now, accepted_terms_at=now)
-            user.set_unusable_password()
-            user.save(update_fields=['password'])
-            if role == 'seller':
-                from apps.sellers.models import Seller
-                Seller.objects.create(user=user, company_name=str(request.data.get('company_name', ''))[:200])
-        if user.is_staff:
-            return Response({'error': 'use_admin_login'}, status=403)
-        if not user.is_active:
-            return Response({'error': 'inactive'}, status=403)
-        request.session.cycle_key()
-        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-        return Response(user_payload(user))
+            bad = registration_blocked(request, ip)
+            if bad:
+                return bad
+            user = create_user(request, ip, username=f'g{info["sub"]}', google_sub=info['sub'], email=info['email'])
+        return finish_login(request, user)
 
 
 class WebhookView(APIView):

@@ -1,95 +1,14 @@
-"""Superadmin: tax accounting package (invoices, VAT) behind a switch, and the financial model."""
-from datetime import date, timedelta
+"""Superadmin: financial model (owner's assumptions, not accounting)."""
+from datetime import timedelta
 from decimal import Decimal
 
-from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.response import Response
 
-from apps.accounting import services as acc
-from apps.accounting.models import Invoice
-from apps.audit.models import log as audit
 from apps.core.models import Setting
 from apps.orders.models import Order, Refund
 
 from .views import AdminBase
-
-
-def parse_month(raw):
-    try:
-        y, m = str(raw).split('-')
-        return date(int(y), int(m), 1)
-    except (ValueError, TypeError):
-        return None
-
-
-class TaxBase(AdminBase):
-    """Whole package is off until the superadmin switches it on in settings."""
-    required_perm = 'finance'
-
-    def initial(self, request, *a, **kw):
-        super().initial(request, *a, **kw)
-        if not Setting.get('tax_accounting_enabled'):
-            from rest_framework.exceptions import NotFound
-            raise NotFound()
-
-
-def inv_payload(i):
-    return {'id': i.id, 'seller_id': i.seller_id, 'seller': i.seller.company_name, 'period': i.period, 'number': i.number,
-            'status': i.status, 'gross': str(i.gross), 'vat_rate': str(i.vat_rate), 'vat_amount': str(i.vat_amount),
-            'net': str(i.net), 'orders': len(i.lines), 'tax_ref': i.tax_ref, 'issued_at': i.issued_at}
-
-
-class Invoices(TaxBase):
-    def get(self, request):
-        qs = Invoice.objects.select_related('seller')
-        period = parse_month(request.query_params.get('month'))
-        if period:
-            qs = qs.filter(period=period)
-        return Response([inv_payload(i) for i in qs[:300]])
-
-
-class InvoiceGenerate(TaxBase):
-    def post(self, request):
-        period = parse_month(request.data.get('month'))
-        if period is None or period >= timezone.now().date().replace(day=1):
-            return Response({'error': 'invalid_request'}, status=400)    # only closed months
-        n = acc.generate_month(period)
-        audit(request, 'invoices_generated', object_type='period', object_id=period.isoformat(), created=n)
-        return Response({'created': n})
-
-
-class InvoiceAction(TaxBase):
-    def post(self, request, pk, action):
-        inv = get_object_or_404(Invoice, pk=pk)
-        if action == 'issue':
-            try:
-                inv = acc.issue(pk, request.user)
-            except ValueError:
-                return Response({'error': 'invalid_state'}, status=400)
-        elif action == 'sent':
-            ref = str(request.data.get('tax_ref', '')).strip()[:80]
-            if inv.status != Invoice.Status.ISSUED or not ref:
-                return Response({'error': 'invalid_state' if ref else 'invalid_request'}, status=400)
-            inv.status, inv.tax_ref = Invoice.Status.SENT, ref
-            inv.save(update_fields=['status', 'tax_ref'])
-        elif action == 'void':
-            if inv.status not in (Invoice.Status.DRAFT, Invoice.Status.ISSUED):
-                return Response({'error': 'invalid_state'}, status=400)
-            inv.status = Invoice.Status.VOID
-            inv.save(update_fields=['status'])
-        else:
-            return Response(status=404)
-        audit(request, f'invoice_{action}', object_type='invoice', object_id=inv.id, number=inv.number)
-        return Response(inv_payload(inv))
-
-
-class VatReport(TaxBase):
-    def get(self, request):
-        period = parse_month(request.query_params.get('month'))
-        if period is None:
-            return Response({'error': 'invalid_request'}, status=400)
-        return Response(acc.vat_report(period))
 
 
 # ---- financial model: inputs are the owner's assumptions, defaults come from real data
@@ -120,7 +39,7 @@ def model_defaults():
         'cash_share_pct': round(done.filter(payment_mode='cash').count() / n_all * 100, 1) if n_all else 0,
         'prepayment_pct': float(Setting.get('prepayment_cash_percent')),
         'refund_rate_pct': round(paid_refunds / n_all * 100, 1) if n_all else 0,
-        'vat_pct': float(Setting.get('vat_rate')) if Setting.get('tax_accounting_enabled') else 0,
+        'vat_pct': float(Setting.get('vat_rate')) if Setting.get('bmg_vat_payer') else 0,
         'fixed_costs_month': 0, 'variable_cost_per_order': 0, 'marketing_month': 0, 'ai_cost_month': 0,
         'opening_cash': 0, 'months': 12, 'based_on_orders': n_all,
     }

@@ -1,20 +1,8 @@
 const BACKEND = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
-const google = process.env.GOOGLE_CLIENT_ID ? ' https://accounts.google.com' : '';   // only when Google sign-in is configured
-const csp = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'" + (process.env.NODE_ENV === 'production' ? '' : " 'unsafe-eval'") + google,
-  "style-src 'self' 'unsafe-inline'" + google,
-  "img-src 'self' data: blob:",
-  "connect-src 'self'" + google,
-  ...(google ? ["frame-src https://accounts.google.com"] : []),
-  "worker-src 'self'",
-  "font-src 'self'",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "object-src 'none'",
-].join('; ');
+// Pages get a nonce-based CSP from src/middleware.ts (src/lib/csp.ts). Everything else (static files, proxied API)
+// gets this strict fallback: no scripts at all.
+const csp = "default-src 'self'; script-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'";
 
 /** @type {import('next').NextConfig} */
 export default {
@@ -32,9 +20,12 @@ export default {
   },
   async headers() {
     return [{
+      // fallback CSP only where middleware doesn't set one (anything that isn't a /uz|ru|en page)
+      source: '/:path((?!uz|ru|en).*)',
+      headers: [{ key: 'Content-Security-Policy', value: csp }],
+    }, {
       source: '/:path*',
       headers: [
-        { key: 'Content-Security-Policy', value: csp },
         { key: 'X-Content-Type-Options', value: 'nosniff' },
         { key: 'X-Frame-Options', value: 'DENY' },
         { key: 'Referrer-Policy', value: 'same-origin' },

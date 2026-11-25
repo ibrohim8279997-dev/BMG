@@ -69,3 +69,22 @@ class BackupCode(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='backup_codes')
     code_hash = models.CharField(max_length=64)
     used = models.BooleanField(default=False)
+
+
+class EmailLoginCode(models.Model):
+    """One-time e-mail login code (stored hashed). Proves the person controls the mailbox."""
+    email = models.EmailField(db_index=True)
+    code_hash = models.CharField(max_length=64)
+    ip = models.GenericIPAddressField(null=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+
+
+class BotLoginToken(models.Model):
+    """One-time sign-in link the Telegram bot gives a user (stored hashed, 5 min, single use)."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='+')
+    token_hash = models.CharField(max_length=64, unique=True)
+    used = models.BooleanField(default=False)
+    expires_at = models.DateTimeField()

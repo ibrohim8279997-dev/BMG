@@ -11,12 +11,23 @@ class Setting(models.Model):
         'prepayment_percent': 5,            # % of order, kept by BMG
         'prepayment_min_order_sum': 0,      # below this -> no prepayment (UZS)
         'prepayment_cash_percent': 5,       # prepayment when rest is paid in cash
+        'cash_commission_percent': 0,       # commission on goods in cash orders; seller owes it, netted from payouts
         'seller_identity_check': False,     # off by default
-        'default_commission_percent': 10,
+        'default_commission_percent': 3,    # BMG agent fee, % of the deal; a seller may have its own rate
         'large_object_area': 1000,          # m2: individual terms for big objects
         'bypass_check_days': 3,             # phone revealed + order still open after N days -> flagged
-        'tax_accounting_enabled': False,    # the Uzbekistan tax package is a switch: off until the accountant signs off
-        'vat_rate': 12,                     # VAT %, applied to BMG's commission (treated as VAT-inclusive)
+        'vat_rate': 12,                     # standard VAT rate in Uzbekistan, %
+        'bmg_vat_payer': False,             # off: commission without VAT; on: VAT is added on top of the commission
+        'bmg_vat_from': '',                 # YYYY-MM-DD: VAT applies to deals created on/after this date
+        'brv_value': 412000,                # base calculation value (BRV), UZS; update when the government changes it
+        'vat_threshold_brv': 12000,         # general VAT regime threshold from 2026-06-01, in BRV
+        'bmg_name': '',                     # BMG requisites printed on documents
+        'bmg_inn': '',
+        'bmg_address': '',
+        'bmg_bank_name': '',
+        'bmg_bank_account': '',
+        'bmg_bank_mfo': '',
+        'einvoice_api_enabled': False,      # direct e-invoice operator API: a stub until an operator is chosen
         'support_phone': '',                # BMG complaint contacts shown on seller profiles and footer
         'support_telegram': '',
         'support_email': '',

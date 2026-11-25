@@ -213,7 +213,6 @@ class AdminReports(Base):
 
     def test_every_export_kind_works_and_unknown_is_404(self):
         make_order(self.c, self.s)
-        Setting.objects.update_or_create(key='tax_accounting_enabled', defaults={'value': True})   # 'invoices' needs the package on
         from apps.adminpanel.reports import EXPORTS
         for k in EXPORTS:
             self.assertEqual(self.get(f'/admin-api/export/{k}').status_code, 200, k)

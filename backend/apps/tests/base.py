@@ -24,7 +24,8 @@ class Base(TestCase):
 
     def seller(self, status='approved', city='Tashkent', delivery=100):
         u = self.user('seller')
-        s = Seller.objects.create(user=u, company_name=f'Co{u.id}', status=status, contact_phone=u.phone)
+        s = Seller.objects.create(user=u, company_name=f'Co{u.id}', status=status, contact_phone=u.phone,
+                                  contract_status='confirmed')
         if city:
             DeliveryRule.objects.create(seller=s, region=city, cost=Decimal(delivery))
         return s
