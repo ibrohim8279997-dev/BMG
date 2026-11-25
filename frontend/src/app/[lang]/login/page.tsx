@@ -37,7 +37,7 @@ export default function Login() {
     setBusy(true); setErr(null); setBotUrl('');
     try {
       const r = await api(method === 'email' ? '/api/v1/auth/email/request-code' : '/api/v1/auth/request-code', { body: method === 'email' ? { email } : { phone } });
-      setDevCode(r.dev_code || ''); setStep('code');
+      setDevCode(r.dev_code || ''); setBotUrl(r.bot_url || ''); setStep('code');
     } catch (e: any) {
       setErr(e.error);
       if (e.error === 'telegram_not_linked') setBotUrl(e.data?.bot_url || '');
@@ -86,6 +86,8 @@ export default function Login() {
         <>
           <p className="muted">{method === 'email' ? t('login.code_sent_email') : t('login.code_sent')}</p>
           {devCode && <p className="notice">DEV: {devCode}</p>}
+          {method === 'tg' && botUrl && (
+            <p className="muted small">{t('login.no_code')} {t('login.link_bot')} <a href={botUrl} target="_blank" rel="noopener noreferrer">{botUrl}</a></p>)}
           <div className="field"><label htmlFor="cd">{t('login.code')}</label>
             <input id="cd" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" /></div>
           {needReg && (

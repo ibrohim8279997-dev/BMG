@@ -36,10 +36,12 @@ function Account() {
     try { await api('/api/v1/complaints', { body: { text, ...(orderId ? { order_id: orderId } : {}) } }); setSent(true); setText(''); }
     catch (e: any) { setErr(e.error); }
   }
-  async function pay(id: number) {
+  async function act(id: number, action: 'pay' | 'cancel' | 'confirm-receipt') {
     setErr(null);
-    try { await api(`/api/v1/orders/${id}/pay`, { method: 'POST', body: {} }); await load(); } catch (e: any) { setErr(e.error); }
+    try { await api(`/api/v1/orders/${id}/${action}`, { method: 'POST', body: {} }); await load(); } catch (e: any) { setErr(e.error); }
   }
+  // online orders: the seller is paid only after the client confirms the delivered goods arrived
+  const awaitingReceipt = (o: any) => o.payment_mode === 'full' && o.items.some((i: any) => i.fulfilled && !i.received);
   return (
     <>
       <h1>{t('nav.account')}</h1>
@@ -65,7 +67,12 @@ function Account() {
               <h3>#{o.id} <span className="tag">{t(`status.${o.status}`)}</span></h3>
               <ul>{o.items.map((i: any) => <li key={i.id}>{i.name} × {Number(i.qty)}</li>)}</ul>
               <div className="price">{money(o.total, lang)}</div>
-              {o.status === 'pending_payment' && <button className="btn small" onClick={() => pay(o.id)}>{t('order.pay')} ({money(o.amount_due_online, lang)})</button>}
+              {o.status === 'pending_payment' && <div className="actions">
+                <button className="btn small" onClick={() => act(o.id, 'pay')}>{t('order.pay')} ({money(o.amount_due_online, lang)})</button>
+                <button className="btn small ghost" onClick={() => act(o.id, 'cancel')}>{t('order.cancel')}</button></div>}
+              {o.status !== 'cancelled' && awaitingReceipt(o) && <>
+                <p className="muted small">{t('order.receipt_hint')}</p>
+                <button className="btn small" onClick={() => act(o.id, 'confirm-receipt')}>{t('order.confirm_receipt')}</button></>}
             </div>))}
           <ErrorText code={err} />
         </div>

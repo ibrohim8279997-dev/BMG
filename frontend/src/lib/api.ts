@@ -37,8 +37,13 @@ export async function api<T = any>(path: string, opts: { method?: string; body?:
 }
 
 const BACKEND = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
-/** Server-side fetch for public SSR pages (no cookies forwarded). */
+/** One URL path segment from a route param: encoded, so `..`, `/` or `?` inside it cannot change the backend path. */
+export const seg = (v: string | number) => encodeURIComponent(String(v));
+
+/** Server-side fetch for public SSR pages (no cookies forwarded). Only /api/ paths without dot-segments. */
 export async function serverApi<T = any>(path: string): Promise<T | null> {
+  const pathname = path.split('?')[0];
+  if (!pathname.startsWith('/api/') || /(^|\/)\.\.?(\/|$)|\\|%2e%2e/i.test(pathname)) return null;
   try {
     const res = await fetch(`${BACKEND}${path}`, { next: { revalidate: 60 } });
     if (!res.ok) return null;

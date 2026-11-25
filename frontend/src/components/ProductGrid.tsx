@@ -17,7 +17,7 @@ export function ProductGrid({ prods, lang, t, resetHref, filtered }: { prods: an
     <div className="grid products">
       {prods.results.map((p: any, i: number) => (
         <div key={p.id} className="card pcard stg" style={{ ['--i' as any]: i % 8 }}>
-          <Link href={`/${lang}/product/${p.id}`} aria-hidden="true" tabIndex={-1}><ProductImage cat={p.category} first={i < 4} /></Link>
+          <Link href={`/${lang}/product/${p.id}`} aria-hidden="true" tabIndex={-1}><ProductImage cat={p.category} src={p.image} first={i < 4} /></Link>
           <div className="body">
             <Link href={`/${lang}/product/${p.id}`}><h3>{p.name}</h3></Link>
             <div className="price">{p.min_price ? <>{t('catalog.from')} {fmt(p.min_price, lang)}{p.unit && <span className="muted small"> / {p.unit}</span>}</> : t('catalog.ask_price')}</div>

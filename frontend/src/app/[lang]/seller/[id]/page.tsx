@@ -3,7 +3,7 @@ import { SellerContact } from '@/components/Actions';
 import Icon from '@/components/Icon';
 import Stars from '@/components/Stars';
 import { Lang } from '@/i18n';
-import { serverApi } from '@/lib/api';
+import { seg, serverApi } from '@/lib/api';
 import { pageMeta } from '@/lib/seo';
 import { serverT } from '@/lib/server';
 
@@ -11,7 +11,7 @@ type P = { params: Promise<{ lang: Lang; id: string }> };
 
 export async function generateMetadata({ params }: P) {
   const { lang, id } = await params;
-  const s = await serverApi<any>(`/api/v1/sellers/${id}`);
+  const s = await serverApi<any>(`/api/v1/sellers/${seg(id)}`);
   if (!s) return {};
   const t = serverT(lang);
   return pageMeta(lang, `/seller/${id}`, `${s.company_name} — ${t('seo.seller.suffix')}`, s.description || s.company_name);
@@ -21,8 +21,8 @@ export default async function Seller({ params }: P) {
   const { lang, id } = await params;
   const t = serverT(lang);
   const [s, rv, cfg] = await Promise.all([
-    serverApi<any>(`/api/v1/sellers/${id}`),
-    serverApi<any>(`/api/v1/sellers/${id}/reviews`),
+    serverApi<any>(`/api/v1/sellers/${seg(id)}`),
+    serverApi<any>(`/api/v1/sellers/${seg(id)}/reviews`),
     serverApi<{ phone: string; telegram: string; email: string }>('/api/v1/config'),
   ]);
   if (!s) notFound();

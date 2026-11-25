@@ -5,6 +5,7 @@ import { Accounting, VatMeter } from '@/components/AdminAccounting';
 import { Crm } from '@/components/AdminCrm';
 import { Analytics, Content, Flags, Model, Quality, Reports, ReviewsMod } from '@/components/AdminReports';
 import Icon from '@/components/Icon';
+import ImportWizard from '@/components/ImportWizard';
 import { useLang, useT } from '@/components/Providers';
 import { api, money } from '@/lib/api';
 import './admin.css';
@@ -48,7 +49,7 @@ function Login({ onDone }: { onDone: () => void }) {
 type Nav = [tab: string, perm: string, icon: string];
 const GROUPS: [string, Nav[]][] = [
   ['main', [['home', '', 'grid']]],
-  ['people', [['sellers', 'sellers', 'users'], ['applications', 'sellers', 'file'], ['commission', 'sellers', 'chart'], ['quality', 'sellers', 'star'], ['flags', 'sellers', 'warn']]],
+  ['people', [['sellers', 'sellers', 'users'], ['imports', 'catalog', 'box'], ['applications', 'sellers', 'file'], ['commission', 'sellers', 'chart'], ['quality', 'sellers', 'star'], ['flags', 'sellers', 'warn']]],
   ['money', [['orders', 'orders', 'box'], ['payouts', 'finance', 'card'], ['analytics', 'finance', 'chart'], ['reports', 'finance', 'file'], ['model', 'finance', 'calc']]],
   ['accounting', [['accounting', 'accounting', 'book']]],
   ['support', [['complaints', 'support', 'chat'], ['reviews', 'support', 'star'], ['content', 'catalog', 'file']]],
@@ -127,9 +128,18 @@ function Panel({ me, onLogout, t }: { me: any; onLogout: () => void; t: (k: stri
         {tab === 'accounting' && <Accounting t={t} />}
         {tab === 'model' && <Model t={t} />}
         {tab === 'crm' && <Crm t={t} />}
+        {tab === 'imports' && <SellerImport />}
       </section>
     </div>
   );
+}
+
+/** "Import a seller's database": AI determines the seller and the columns, asks about the rest, finds photos. */
+function SellerImport() {
+  const [sellers, setSellers] = useState<any[] | null>(null);
+  useEffect(() => { api('/admin-api/imports').then((d) => setSellers(d.sellers)).catch(() => setSellers([])); }, []);
+  if (!sellers) return <p className="muted">…</p>;
+  return <ImportWizard base="/admin-api/imports" sellers={sellers} />;
 }
 
 /** Start page: one look shows what needs a human and where to click. */

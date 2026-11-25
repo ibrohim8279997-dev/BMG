@@ -4,7 +4,7 @@ import { AddToCart } from '@/components/Actions';
 import ProductImage from '@/components/ProductImage';
 import Stars from '@/components/Stars';
 import { Lang } from '@/i18n';
-import { serverApi } from '@/lib/api';
+import { seg, serverApi } from '@/lib/api';
 import { pageMeta } from '@/lib/seo';
 import { fmt, serverT } from '@/lib/server';
 
@@ -12,7 +12,7 @@ type P = { params: Promise<{ lang: Lang; id: string }> };
 
 export async function generateMetadata({ params }: P) {
   const { lang, id } = await params;
-  const p = await serverApi<any>(`/api/v1/products/${id}?lang=${lang}`);
+  const p = await serverApi<any>(`/api/v1/products/${seg(id)}?lang=${seg(lang)}`);
   const t = serverT(lang);
   if (!p) return {};
   const best = p.offers[0];
@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: P) {
 export default async function Product({ params }: P) {
   const { lang, id } = await params;
   const t = serverT(lang);
-  const p = await serverApi<any>(`/api/v1/products/${id}?lang=${lang}`);
+  const p = await serverApi<any>(`/api/v1/products/${seg(id)}?lang=${seg(lang)}`);
   if (!p) notFound();
   const jsonLd = {
     '@context': 'https://schema.org', '@type': 'Product', name: p.name, category: p.category.name,
@@ -37,7 +37,7 @@ export default async function Product({ params }: P) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
       <p className="crumb"><Link href={`/${lang}/catalog`}>{t('nav.catalog')}</Link><span>/</span><Link href={`/${lang}/catalog/${p.category.slug}`}>{p.category.name}</Link></p>
       <div className="pgrid">
-        <ProductImage cat={p.category.slug} big />
+        <ProductImage cat={p.category.slug} src={p.image} big />
         <div>
           <h1 style={{ fontSize: 'clamp(1.7rem,3.4vw,2.5rem)' }}>{p.name}</h1>
           {p.offers[0] && <div className="price" style={{ fontSize: '1.7rem' }}>{t('catalog.from')} {fmt(p.offers[0].price, lang)}{p.unit && <span className="muted small"> / {p.unit}</span>}</div>}

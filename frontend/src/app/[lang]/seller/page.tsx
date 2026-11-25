@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { ErrorText, RequireAuth } from '@/components/Bits';
+import ImportWizard from '@/components/ImportWizard';
 import { useLang, useT } from '@/components/Providers';
 import { api, money } from '@/lib/api';
 
@@ -64,65 +65,8 @@ function Invoices() {
   );
 }
 
-const FIELDS = ['name', 'price', 'stock', 'category', 'unit', 'cost_price'];
-
 function Import() {
-  const t = useT();
-  const [imp, setImp] = useState<any>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  async function upload(file: File) {
-    setErr(null); setBusy(true);
-    const fd = new FormData(); fd.append('file', file);
-    try { setImp(await api('/api/v1/sellers/me/imports', { form: fd })); } catch (e: any) { setErr(e.error); }
-    setBusy(false);
-  }
-  async function setCol(field: string, v: string) {
-    const mapping = { ...imp.mapping };
-    if (v === '') delete mapping[field]; else mapping[field] = Number(v);
-    try { setImp({ ...imp, ...(await api(`/api/v1/sellers/me/imports/${imp.id}`, { method: 'PATCH', body: { mapping } })) }); }
-    catch (e: any) { setErr(e.error); }
-  }
-  async function confirm() {
-    setErr(null); setBusy(true);
-    try { setImp({ ...imp, ...(await api(`/api/v1/sellers/me/imports/${imp.id}/confirm`, { method: 'POST', body: {} })) }); }
-    catch (e: any) { setErr(e.error); }
-    setBusy(false);
-  }
-  if (imp?.status === 'confirmed') {
-    const r = imp.result;
-    return (
-      <div className="card"><h3>{t('import.done')}</h3>
-        <p>{t('import.created')}: {r.created} · {t('import.updated')}: {r.updated} · {t('import.errors')}: {r.error_count}</p>
-        {r.errors.length > 0 && <div className="table-wrap"><table><tbody>{r.errors.map((e: any, i: number) =>
-          <tr key={i}><td>#{e.row}</td><td className="error">{t(`import.err.${e.error}`)}</td></tr>)}</tbody></table></div>}
-        <button className="btn" onClick={() => setImp(null)}>{t('import.another')}</button></div>
-    );
-  }
-  return (
-    <div className="card">
-      <p className="muted">{t('import.hint')}</p>
-      <input type="file" accept=".xlsx" disabled={busy} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-      <ErrorText code={err} />
-      {imp && (
-        <>
-          <h3 style={{ marginTop: 16 }}>{t('import.mapping')}</h3>
-          <p className="muted small">{t('import.mapping_hint')}</p>
-          <div className="row">{FIELDS.map((f) => (
-            <div key={f}><label htmlFor={`m-${f}`}>{t(`import.field.${f}`)}{imp.required.includes(f) ? ' *' : ''}</label>
-              <select id={`m-${f}`} value={imp.mapping[f] ?? ''} onChange={(e) => setCol(f, e.target.value)}>
-                <option value="">—</option>
-                {imp.headers.map((h: string, i: number) => <option key={i} value={i}>{h || `#${i + 1}`}</option>)}
-              </select></div>))}</div>
-          <div className="table-wrap"><table>
-            <thead><tr>{imp.headers.map((h: string, i: number) => <th key={i}>{h}</th>)}</tr></thead>
-            <tbody>{imp.preview?.map((r: string[], i: number) => <tr key={i}>{r.map((c, j) => <td key={j}>{c}</td>)}</tr>)}</tbody>
-          </table></div>
-          <button className="btn" disabled={busy || imp.required.some((f: string) => imp.mapping[f] === undefined)} onClick={confirm}>{t('import.confirm')}</button>
-        </>
-      )}
-    </div>
-  );
+  return <ImportWizard base="/api/v1/sellers/me/imports" />;
 }
 
 function Offers() {

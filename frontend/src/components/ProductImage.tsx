@@ -1,8 +1,8 @@
 import { catImg } from '@/lib/images';
 
-/** Category photo, or a drawn icon for categories that have no photograph yet (paint, drywall). */
-export default function ProductImage({ cat, big = false, first = false }: { cat?: string | null; big?: boolean; first?: boolean }) {
-  const src = catImg(cat);
+/** Product photo (found by AI during import), else the category photo, else a drawn icon (paint, drywall). */
+export default function ProductImage({ cat, src: own, big = false, first = false }: { cat?: string | null; src?: string | null; big?: boolean; first?: boolean }) {
+  const src = (own && own.startsWith('/api/v1/products/') ? own : null) || catImg(cat);
   return (
     <div className={`pimg ${big ? 'big' : ''}`}>
       {src ? (
