@@ -1,0 +1,272 @@
+[
+ {
+  "n": 1,
+  "id": "committed-crm-api-key",
+  "severity": "crit",
+  "status": "src",
+  "title": "Рабочий ключ записи CRM закоммичен в git",
+  "where": [
+   "backend/.env.example:38 (значение <code>nxk_6e6df9…</code>, в отчёте скрыто)",
+   "backend/config/settings.py:137",
+   "добавлен в коммите 6c08120"
+  ]
+ },
+ {
+  "n": 2,
+  "id": "double-payout-legacy-vs-registry",
+  "severity": "high",
+  "status": "src",
+  "title": "Одну сделку можно выплатить продавцу дважды",
+  "where": [
+   "apps/orders/views.py:158-174 (SellerPayout) → apps/adminpanel/views.py:374-390 (Payouts.post)",
+   "apps/adminpanel/accounting.py:84-99 (PayOut) → apps/accounting/deals.py:125-144 (mark_paid_out)"
+  ]
+ },
+ {
+  "n": 3,
+  "id": "seller-self-fulfill-triggers-payable",
+  "severity": "high",
+  "status": "src",
+  "title": "Продавец сам отмечает «доставлено» и получает право на выплату без проверки",
+  "where": [
+   "apps/orders/views.py:114-124 (SellerFulfill)",
+   "apps/orders/services.py:120-156 (fulfill, кредит журнала на :135)",
+   "apps/orders/services.py:184-189 (refund_order)"
+  ]
+ },
+ {
+  "n": 4,
+  "id": "xff-spoofing-via-next-proxy",
+  "severity": "high",
+  "status": "rt",
+  "title": "Подмена X-Forwarded-For обходит все IP-ограничения",
+  "where": [
+   "apps/core/utils.py:4-12 (client_ip берёт parts[-NUM_PROXIES])",
+   "config/settings.py:96; backend/.env.example рекомендует NUM_PROXIES=1",
+   "frontend/node_modules/next/dist/server/base-server.js:567 (<code>x-forwarded-for ??= remoteAddress</code> — заголовок клиента сохраняется)"
+  ]
+ },
+ {
+  "n": 5,
+  "id": "otp-no-cumulative-lockout",
+  "severity": "med",
+  "status": "src",
+  "title": "Коды входа: нет накопительной блокировки и гонка счётчика попыток",
+  "where": [
+   "apps/accounts/views.py:79-134; apps/accounts/email_login.py:55-115",
+   "apps/accounts/services.py:27-51; email_login.py:43-52"
+  ]
+ },
+ {
+  "n": 6,
+  "id": "unpaid-orders-lock-stock-forever",
+  "severity": "med",
+  "status": "src",
+  "title": "Неоплаченные заказы бессрочно держат остатки",
+  "where": [
+   "apps/orders/views.py:64-74 → apps/orders/services.py:83-86"
+  ]
+ },
+ {
+  "n": 7,
+  "id": "commission-evasion-via-delivery-cost",
+  "severity": "med",
+  "status": "src",
+  "title": "Уход от комиссии через стоимость доставки",
+  "where": [
+   "apps/sellers/views.py:116-128 (MyDelivery.post)",
+   "apps/orders/services.py:71; apps/accounting/deals.py:52,59"
+  ]
+ },
+ {
+  "n": 8,
+  "id": "seller-requisites-unreviewed-change",
+  "severity": "med",
+  "status": "src",
+  "title": "Реквизиты и профиль продавца меняются без проверки и аудита",
+  "where": [
+   "apps/sellers/views.py:56-76 (MyProfile.patch)",
+   "apps/adminpanel/reports.py:187-191 (реестр выплат берёт текущие реквизиты)"
+  ]
+ },
+ {
+  "n": 9,
+  "id": "seller-payout-request-race",
+  "severity": "med",
+  "status": "src",
+  "title": "Гонка заявок на выплату — сумма заявок больше баланса",
+  "where": [
+   "apps/orders/views.py:127-130,161-174",
+   "apps/adminpanel/views.py:379"
+  ]
+ },
+ {
+  "n": 10,
+  "id": "ai-cost-no-quota",
+  "severity": "med",
+  "status": "src",
+  "title": "Расходы на ИИ без квот",
+  "where": [
+   "apps/ai/views.py:11,29; config/settings.py:93 (лимит 'ai' 20/мин)",
+   "apps/catalog/views.py:115-117,163-172",
+   "apps/ai/service.py:14-26 (complete() пишет AIUsage, но не ограничивает)"
+  ]
+ },
+ {
+  "n": 11,
+  "id": "calc-zones-amplification-dos",
+  "severity": "med",
+  "status": "src",
+  "title": "Калькулятор: дубли зон умножают нагрузку на БД",
+  "where": [
+   "apps/calculator/views.py:102-106 (Calculate.post)",
+   "apps/calculator/service.py:105-120 (N+1)"
+  ]
+ },
+ {
+  "n": 12,
+  "id": "image-fetch-dns-rebinding-ssrf",
+  "severity": "med",
+  "status": "unc",
+  "title": "SSRF через DNS-rebinding при загрузке картинок товаров",
+  "where": [
+   "apps/catalog/importer.py:100,117-119 → apps/catalog/ai_import.py:177-183",
+   "apps/catalog/ai_import.py:134-152 (safe_fetch)"
+  ]
+ },
+ {
+  "n": 13,
+  "id": "bot-token-login-csrf",
+  "severity": "med",
+  "status": "src",
+  "title": "Ссылка входа из бота логинит жертву в аккаунт атакующего",
+  "where": [
+   "frontend/src/app/[lang]/login/tg/page.tsx:17-24",
+   "apps/accounts/bot_api.py:110-127"
+  ]
+ },
+ {
+  "n": 14,
+  "id": "locmem-cache-default",
+  "severity": "med",
+  "status": "src",
+  "title": "Лимиты и блокировки по умолчанию живут в памяти процесса",
+  "where": [
+   "config/settings.py:98-99",
+   "apps/adminpanel/views.py:57-59,86"
+  ]
+ },
+ {
+  "n": 15,
+  "id": "seller-hijack-via-unverified-inn",
+  "severity": "low",
+  "status": "unc",
+  "title": "Перехват импорта прайса через чужой ИНН",
+  "where": [
+   "apps/sellers/views.py:67-71",
+   "apps/catalog/ai_import.py:91-101; import_flow.py:40-45; adminpanel/imports.py:16-17"
+  ]
+ },
+ {
+  "n": 16,
+  "id": "phone-reveal-scraping",
+  "severity": "low",
+  "status": "src",
+  "title": "Массовый сбор телефонов продавцов",
+  "where": [
+   "apps/sellers/views.py:176-191"
+  ]
+ },
+ {
+  "n": 17,
+  "id": "import-reparse-dos",
+  "severity": "low",
+  "status": "rt",
+  "title": "Повторный разбор xlsx на каждый GET/PATCH импорта",
+  "where": [
+   "apps/catalog/views.py:131-147 → import_flow.py:52-53; importer.py:25-36"
+  ]
+ },
+ {
+  "n": 18,
+  "id": "user-enumeration",
+  "severity": "low",
+  "status": "src",
+  "title": "Перечисление аккаунтов и почт сотрудников",
+  "where": [
+   "apps/accounts/views.py:89-95,119-129",
+   "apps/accounts/email_login.py:101-112"
+  ]
+ },
+ {
+  "n": 19,
+  "id": "admin-auth-hardening",
+  "severity": "low",
+  "status": "src",
+  "title": "Админ-вход: DoS блокировкой и слабые места 2FA",
+  "where": [
+   "apps/adminpanel/views.py:36-45,57-59,66-75,86-87"
+  ]
+ },
+ {
+  "n": 20,
+  "id": "refund-seller-clawback-wrong-base",
+  "severity": "low",
+  "status": "src",
+  "title": "Возврат по вине продавца списывает больше, чем ему начислено",
+  "where": [
+   "apps/adminpanel/views.py:352-363 → apps/orders/services.py:187-189"
+  ]
+ },
+ {
+  "n": 21,
+  "id": "xfp-spoofing",
+  "severity": "low",
+  "status": "src",
+  "title": "Подмена X-Forwarded-Proto",
+  "where": [
+   "config/settings.py:77; crm/api.py:43"
+  ]
+ },
+ {
+  "n": 22,
+  "id": "csv-formula-guard-incomplete",
+  "severity": "low",
+  "status": "rt",
+  "title": "Защита CSV от формул пропускает \\t и \\r",
+  "where": [
+   "apps/adminpanel/reports.py:160-163,199-213"
+  ]
+ },
+ {
+  "n": 23,
+  "id": "decimal-and-cursor-500",
+  "severity": "low",
+  "status": "src",
+  "title": "Ошибки 500 на граничных значениях",
+  "where": [
+   "apps/catalog/views.py:226-229; importer.py:52-63,120-122",
+   "apps/crm/api.py:126"
+  ]
+ },
+ {
+  "n": 24,
+  "id": "ssr-param-path-injection",
+  "severity": "low",
+  "status": "rt",
+  "title": "Параметры маршрута без кодирования в серверных запросах",
+  "where": [
+   "frontend/src/lib/api.ts:44-52; app/[lang]/product/[id]/page.tsx:26 (и catalog, seller, prices, legal)"
+  ]
+ },
+ {
+  "n": 25,
+  "id": "misc-info",
+  "severity": "info",
+  "status": "src",
+  "title": "Прочие замечания",
+  "where": [
+   "frontend/src/lib/csp.ts:11; requirements.txt; sellers/views.py:159-173; bot_api.py:61-107; bot/docker-compose.yml"
+  ]
+ }
+]
