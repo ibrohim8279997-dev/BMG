@@ -15,4 +15,9 @@ def production_settings(app_configs, **kwargs):
                            hint='Set TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY.', id='bmg.W002'))
     if not settings.CLICK_ALLOWED_IPS:
         out.append(Warning('CLICK_ALLOWED_IPS is empty: every Click callback will be refused.', id='bmg.W003'))
+    if not settings.DEBUG and not settings.REST_FRAMEWORK.get('NUM_PROXIES'):
+        out.append(Warning('NUM_PROXIES=0: behind nginx/Next.js every visitor shares one IP, so per-IP limits and the '
+                           'admin / Click / CRM IP allowlists do not work as intended.',
+                           hint='Set NUM_PROXIES=1 and TRUSTED_PROXY_IPS; the edge must overwrite X-Forwarded-For '
+                                '(config/nginx.conf).', id='bmg.W004'))
     return out

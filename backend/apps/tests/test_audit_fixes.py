@@ -69,7 +69,7 @@ class BotApi(Base):                     # 13, 25
         self.assertEqual(r.status_code, 200)
         self.assertTrue(r.data['account'].endswith(u.phone[-2:]))
         self.assertNotIn(u.phone, r.data['account'])                  # masked
-        self.assertEqual(self.api.get('/api/v1/auth/me').status_code in (401, 403), True)
+        self.assertNotIn('_auth_user_id', self.api.session.keys())   # the preview did not sign anyone in
         self.assertEqual(self.api.post('/api/v1/auth/bot-token', {'token': token}, format='json').data['id'], u.id)
 
 
