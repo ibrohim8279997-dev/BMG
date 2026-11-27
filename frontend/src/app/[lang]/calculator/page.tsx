@@ -1,7 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import HouseStudio, { FLOORS } from '@/components/HouseStudio';
+import HouseConfigurator, { FLOORS } from '@/components/HouseConfigurator';
 import ProjectDescribe from '@/components/ProjectDescribe';
 import { CountUp, Disclaimer, ErrorText, notifyCart } from '@/components/Bits';
 import Icon from '@/components/Icon';
@@ -89,7 +89,7 @@ export default function Calc() {
     <>
       <h1>{t('calc.title')}</h1>
       <Disclaimer />
-      <HouseStudio design={design} onChange={setDesign} type={f.type} zones={zones} onZone={toggle} />
+      <HouseConfigurator design={design} onChange={setDesign} type={f.type} zones={zones} onZone={toggle} />
       <div className="calc2">
         <div>
           {!obj && isClient && <ProjectDescribe onApply={(fl, zs) => {

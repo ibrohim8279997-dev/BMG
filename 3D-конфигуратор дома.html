@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>3D-конфигуратор дома</title>
+<style>
+:root{--bg:#eef1f4;--bg2:#d9e0e6;--panel:#fff;--text:#1d2630;--muted:#667584;--line:#d5dce3;--acc:#d9622b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1a2027;--bg2:#10141a;--panel:#1f262e;--text:#e8edf2;--muted:#93a1ae;--line:#323c47}}
+:root[data-theme="dark"]{--bg:#1a2027;--bg2:#10141a;--panel:#1f262e;--text:#e8edf2;--muted:#93a1ae;--line:#323c47}
+html,body{height:100%;margin:0;background:var(--bg)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--text);overflow:hidden}
+#app{position:relative;height:100%;min-height:360px;overflow:hidden;background:radial-gradient(circle at 50% 42%,var(--bg),var(--bg2))}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.top{position:absolute;left:12px;right:12px;top:12px;display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;pointer-events:none;transition:right .35s}
+.top>*{pointer-events:auto}
+.chips,.tools{display:flex;gap:6px}
+.chips{overflow-x:auto;max-width:100%;scrollbar-width:none}
+button{font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:8px 14px;min-height:40px;cursor:pointer;white-space:nowrap;flex:none;transition:background .2s,transform .15s}
+button:active{transform:scale(.96)}
+button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.hint{position:absolute;left:12px;bottom:12px;color:var(--muted);font-size:12px;pointer-events:none;max-width:60%}
+aside{position:absolute;right:12px;top:12px;bottom:12px;width:320px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;overflow:auto;box-shadow:0 8px 30px rgba(0,0,0,.15);transform:translateX(calc(100% + 24px));transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+#app.open aside{transform:none}
+#app.open .top{right:356px}
+aside h2{margin:0;font-size:18px;padding-right:44px}
+#x{position:absolute;right:10px;top:10px;width:40px;padding:0;font-size:20px}
+.badge{display:inline-block;margin:8px 0 12px;font-size:12px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.card{display:block;text-align:left;border-radius:12px;padding:6px;white-space:normal;background:var(--bg)}
+.card i{display:block;height:64px;border-radius:8px;background-size:cover;border:1px solid var(--line)}
+.card b{display:block;margin-top:6px;font-size:13px}
+.card small{color:var(--muted);font-size:11px}
+.card.on{background:var(--panel);border-color:var(--acc);box-shadow:0 0 0 2px var(--acc);color:var(--text);animation:pop .3s}
+@keyframes pop{50%{transform:scale(1.04)}}
+@media(max-width:720px){
+ aside{left:8px;right:8px;top:auto;bottom:8px;width:auto;max-height:44%;transform:translateY(calc(100% + 16px))}
+ #app.open .top{right:12px}
+ #app.open .hint{display:none}
+ .hint{max-width:90%}
+ .chips{width:100%}
+}
+</style></head><body>
+<div id="app">
+ <canvas id="cv"></canvas>
+ <div class="top"><div class="chips" id="chips"></div>
+  <div class="tools"><button id="bEx">Разобрать</button><button id="bRot">Автовращение</button></div></div>
+ <div class="hint">Тяните — вращение · колесо / щипок — масштаб · двойной клик — разборка и сборка · клик по элементу — материалы</div>
+ <aside id="panel"></aside>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* House configurator (standalone). Integration: HouseConfigurator(containerEl, {catalog, onMaterialChange}) */
+const T=THREE;
+const M=(name,kind,color,d,o)=>Object.assign({id:name,name,kind,color,d},o);
+const DEMO_CATALOG={
+ walls:[M('Штукатурка тёплая','plaster','#efe3c8','Фасадная штукатурка'),M('Красный кирпич','brick','#b5523b','Облицовочный кирпич'),M('Силикатный кирпич','brick','#e6e2d8','Светлая кладка'),M('Газобетон','block','#dedbd2','Лёгкие блоки'),M('Бетонный блок','block','#9a9a98','Стеновой блок')],
+ cover:[M('Керамическая черепица','shingle','#c4562f','Классическая кровля'),M('Металлочерепица','metal','#a8322b','Лёгкая кровля',{m:.5,r:.45}),M('Гибкая черепица','shingle','#4b4f52','Битумное покрытие'),M('Профнастил','corr','#7d8790','Профилированный лист',{m:.5,r:.45})],
+ rafters:[M('Сосна','plank','#c89a5b','Стропила из дерева'),M('Лиственница','plank','#b0713d','Плотная древесина'),M('Клеёный брус','plank','#dcb98a','Брус заводской готовности'),M('Стальной профиль','flat','#8c949c','Металлокаркас',{m:.6,r:.4})],
+ foundation:[M('Бетон с гидроизоляцией','concrete','#4a4d52','Защита от влаги'),M('Монолитный бетон','concrete','#9c9c98','Монолитная лента'),M('Блоки ФБС','block','#8e8e8c','Сборные блоки'),M('Утеплённый (XPS)','flat','#e9a13b','Теплоизоляция цоколя')],
+ slab:[M('Паркет','plank','#8a5a35','Деревянный пол'),M('Ламинат','plank','#b98d5a','Ламинированное покрытие'),M('Керамическая плитка','tile','#cfcfcf','Плитка для пола'),M('Бетонная стяжка','concrete','#b7b6b2','Чистовая стяжка')],
+ frame:[M('Брус','plank','#d2a76b','Деревянный каркас'),M('Стальной профиль','flat','#7a828a','Металлокаркас',{m:.6,r:.4}),M('Железобетон','concrete','#aaaaa6','Колонны и пояса')],
+ elec:[M('Кабель ВВГ','flat','#e8731c','Силовой кабель'),M('Гофротруба','flat','#3b7fd1','Защитная прокладка'),M('Кабель-канал','flat','#f1f1ee','Открытая проводка'),M('Медный провод','flat','#b87333','Медная жила',{m:.7,r:.35})],
+ open:[M('Дерево','plank','#8a5a35','Деревянные окна и двери'),M('ПВХ белый','flat','#f4f4f2','Пластиковый профиль'),M('Алюминий графит','flat','#3b4148','Алюминиевый профиль',{m:.5,r:.4})]
+};
+const REP={brick:[8,6],block:[4,3],tile:[8,6],plank:[3,3],shingle:[6,3],metal:[8,3],corr:[8,2],concrete:[3,2],plaster:[4,3]};
+const LEVELS=[['','Весь дом'],['foundation','Фундамент'],['floor1','1 этаж'],['floor2','2 этаж'],['roof','Крыша']];
+const LV_Y={foundation:.3,floor1:3.2,floor2:9.3,roof:13.5};
+
+function paint(k,c){
+ const cv=document.createElement('canvas');cv.width=cv.height=128;const g=cv.getContext('2d');
+ const sh=d=>new T.Color(c).offsetHSL(0,0,d).getStyle(),rn=()=>(Math.random()-.5)*.08;
+ const noise=(n,a)=>{for(let i=0;i<n;i++){g.fillStyle=Math.random()<.5?`rgba(0,0,0,${a})`:`rgba(255,255,255,${a})`;g.fillRect(Math.random()*128,Math.random()*128,2,2)}};
+ g.fillStyle=c;g.fillRect(0,0,128,128);
+ if(k==='brick'){g.fillStyle='#cfc8bb';g.fillRect(0,0,128,128);for(let r=0;r<8;r++)for(let i=-1;i<4;i++){g.fillStyle=sh(rn());g.fillRect(i*32+(r%2?16:0)+1,r*16+1,30,14)}}
+ else if(k==='tile'){g.fillStyle=sh(-.25);g.fillRect(0,0,128,128);for(let i=0;i<2;i++)for(let j=0;j<2;j++){g.fillStyle=sh((i+j)%2?.03:-.02);g.fillRect(i*64+2,j*64+2,60,60)}}
+ else if(k==='plank'){for(let i=0;i<8;i++){g.fillStyle=sh(rn());g.fillRect(i*16,0,15,128);g.fillStyle=sh(-.15);g.fillRect(i*16+15,0,1,128)}noise(250,.05)}
+ else if(k==='shingle'){for(let r=0;r<8;r++)for(let i=-1;i<5;i++){const x=i*26+(r%2?13:0)+1;g.fillStyle=sh(rn());g.fillRect(x,r*16,24,15);g.fillStyle=sh(-.2);g.fillRect(x,r*16+13,24,2)}}
+ else if(k==='metal'){for(let r=0;r<4;r++){g.fillStyle=sh(-.12);g.fillRect(0,r*32+28,128,4)}for(let i=0;i<4;i++){g.fillStyle=sh(.08);g.fillRect(i*32,0,3,128)}}
+ else if(k==='corr'){for(let i=0;i<8;i++){const q=g.createLinearGradient(i*16,0,i*16+16,0);q.addColorStop(0,sh(.08));q.addColorStop(1,sh(-.1));g.fillStyle=q;g.fillRect(i*16,0,16,128)}}
+ else if(k==='concrete')noise(700,.07);
+ else if(k==='block'){noise(400,.07);g.fillStyle=sh(-.12);for(let r=0;r<4;r++){g.fillRect(0,r*32,128,2);for(let i=0;i<2;i++)g.fillRect(i*64+(r%2?32:0),r*32,2,32)}}
+ else if(k==='plaster')noise(500,.04);
+ return cv}
+
+function HouseConfigurator(root,opts={}){
+ const CAT=Object.assign({},DEMO_CATALOG,opts.catalog||{});
+ const cv=root.querySelector('canvas'),panel=root.querySelector('aside');
+ const ac=new AbortController(),sig={signal:ac.signal};
+ const renderer=new T.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
+ renderer.outputEncoding=T.sRGBEncoding;renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
+ renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+ const scene=new T.Scene(),cam=new T.PerspectiveCamera(35,1,.5,300);
+ scene.add(new T.HemisphereLight(0xffffff,0x8a94a0,.8));
+ const sun=new T.DirectionalLight(0xffffff,.9);sun.position.set(12,26,14);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);
+ Object.assign(sun.shadow.camera,{left:-18,right:18,top:18,bottom:-18,near:1,far:80});scene.add(sun);
+ const fill=new T.DirectionalLight(0xffffff,.25);fill.position.set(-10,8,-12);scene.add(fill);
+ const ground=new T.Mesh(new T.PlaneGeometry(90,90).rotateX(-Math.PI/2),new T.ShadowMaterial({opacity:.2}));
+ ground.position.y=-.01;ground.receiveShadow=true;scene.add(ground);
+
+ const parts=[],meshes=[];
+ const bx=(g,m,w,h,d,x,y,z)=>{const o=new T.Mesh(new T.BoxGeometry(w,h,d),m);o.position.set(x,y,z);g.add(o);return o};
+ function apply(p,it){const u=p.userData,m=u.main;u.mi=CAT[u.type].indexOf(it);
+  if(it.kind==='flat'){m.map=null;m.color.set(it.color)}
+  else{if(!it._cv){it._cv=paint(it.kind,it.color);it._u=it._cv.toDataURL()}
+   if(!it._t){const t=it._t=new T.CanvasTexture(it._cv);t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(...REP[it.kind]);t.anisotropy=4;t.encoding=T.sRGBEncoding}
+   m.map=it._t;m.color.set(0xffffff)}
+  m.roughness=it.r??.85;m.metalness=it.m??0;m.needsUpdate=true}
+ function mk(id,level,type,name,ex,reveal,build){
+  const g=new T.Group(),main=new T.MeshStandardMaterial({roughness:.85});
+  g.userData={id,level,type,name,ex,reveal,main,d:1,dt:1,s:0,lift:0,flash:0,sel:false,hov:false,lo:-1};
+  build(g,main);scene.add(g);parts.push(g);
+  const set=new Set();
+  g.traverse(o=>{if(o.isMesh){o.castShadow=o.receiveShadow=true;o.userData.part=g;meshes.push(o);set.add(o.material)}});
+  set.forEach(m=>m.userData.base=m.opacity);g.userData.mats=[...set];apply(g,CAT[type][0])}
+ const slab=y0=>(g,m)=>bx(g,m,8.2,.2,6.2,0,y0+.1,0);
+ const walls=(y0,h,gable)=>(g,m)=>{
+  bx(g,m,8,h,.25,0,y0+h/2,2.875);bx(g,m,8,h,.25,0,y0+h/2,-2.875);bx(g,m,.25,h,5.5,3.875,y0+h/2,0);bx(g,m,.25,h,5.5,-3.875,y0+h/2,0);
+  if(gable){const s=new T.Shape();s.moveTo(-3,0);s.lineTo(3,0);s.lineTo(0,2);s.closePath();
+   [3.75,-4].forEach(x=>{const ge=new T.ExtrudeGeometry(s,{depth:.25,bevelEnabled:false});ge.rotateY(Math.PI/2);
+    const uv=ge.attributes.uv;for(let i=0;i<uv.array.length;i++)uv.array[i]/=6;
+    const o=new T.Mesh(ge,m);o.position.set(x,y0+h,0);g.add(o)})}};
+ const open=(y0,fr,bk,door)=>(g,m)=>{
+  const gl=new T.MeshStandardMaterial({color:0x8fb4d4,roughness:.1,metalness:.2,transparent:true,opacity:.55});
+  const w=(l,y,s,ax)=>{const z=ax==='z',n=s*(z?2.96:3.96),p=(a,b,c)=>z?[a,b,c]:[c,b,a];
+   [[m,1.1,1.3,.16],[gl,.88,1.08,.2],[m,.05,1.08,.22]].forEach(([mm,a,b,c])=>{const d=p(a,b,c),q=z?[l,y,n]:[n,y,l];bx(g,mm,d[0],d[1],d[2],q[0],q[1],q[2])})};
+  fr.forEach(x=>w(x,y0+1.3,1,'z'));bk.forEach(x=>w(x,y0+1.3,-1,'z'));w(0,y0+1.3,1,'x');w(0,y0+1.3,-1,'x');
+  if(door){bx(g,m,1,2.1,.12,0,y0+1.05,2.99);bx(g,new T.MeshStandardMaterial({color:0x222222}),.06,.06,.1,.35,y0+1,3.07)}};
+ const frame=(y0,h)=>(g,m)=>{
+  [-3.55,0,3.55].forEach(x=>[-2.6,2.6].forEach(z=>bx(g,m,.2,h,.2,x,y0+h/2,z)));
+  [-2.6,2.6].forEach(z=>bx(g,m,7.3,.2,.2,0,y0+h-.1,z));[-3.55,3.55].forEach(x=>bx(g,m,.2,.2,5.2,x,y0+h-.1,0))};
+ const elec=y0=>(g,m)=>{const y=y0+.5,so=new T.MeshStandardMaterial({color:0xf4f4f0});
+  bx(g,m,7.2,.06,.06,0,y,-2.68);bx(g,m,.06,.06,5.2,3.68,y,0);bx(g,m,.06,.06,5.2,-3.68,y,0);
+  [-2.4,0,2.4].forEach(x=>{bx(g,m,.06,1.1,.06,x,y+.55,-2.68);bx(g,so,.16,.16,.05,x,y+1.15,-2.7)})};
+ const TH=Math.atan2(2,3),L=Math.hypot(3,2)+.45,R0=6.1,AY=R0+2.3;
+ const slope=(g,m,w,h,xx,off)=>[1,-1].forEach(s=>{
+  const o=bx(g,m,w,h,L,xx,AY-Math.sin(TH)*L/2+off*Math.cos(TH),s*(Math.cos(TH)*L/2+off*Math.sin(TH)));o.rotation.x=s*TH});
+ mk('foundation','foundation','foundation','Фундамент',0,false,(g,m)=>bx(g,m,8.6,.6,6.6,0,.3,0));
+ mk('f1_slab','floor1','slab','1 этаж — пол и перекрытие',.8,false,slab(.6));
+ mk('f1_walls','floor1','walls','1 этаж — стены',1.6,false,walls(.8,2.6));
+ mk('f1_open','floor1','open','1 этаж — окна и двери',1.6,false,open(.8,[-2.5,2.5],[-2.5,0,2.5],true));
+ mk('f1_frame','floor1','frame','1 этаж — каркас',1.6,true,frame(.8,2.6));
+ mk('f1_elec','floor1','elec','1 этаж — электрика',1.6,true,elec(.8));
+ mk('f2_slab','floor2','slab','2 этаж — пол и перекрытие',2.8,false,slab(3.4));
+ mk('f2_walls','floor2','walls','2 этаж — стены',3.8,false,walls(3.6,2.5,true));
+ mk('f2_open','floor2','open','2 этаж — окна',3.8,false,open(3.6,[-2.5,0,2.5],[-2.5,0,2.5],false));
+ mk('f2_frame','floor2','frame','2 этаж — каркас',3.8,true,frame(3.6,2.5));
+ mk('f2_elec','floor2','elec','2 этаж — электрика',3.8,true,elec(3.6));
+ mk('roof_frame','roof','rafters','Стропильная система',5.4,false,(g,m)=>{
+  for(let x=-4;x<=4.01;x+=.8)slope(g,m,.1,.2,x,-.1);
+  bx(g,m,8.4,.2,.2,0,AY-.15,0);for(let x=-3.2;x<=3.2;x+=1.6)bx(g,m,.1,.16,6.2,x,R0+.1,0)});
+ mk('roof_cover','roof','cover','Кровельное покрытие',6.8,false,(g,m)=>{slope(g,m,8.8,.1,0,.05);bx(g,m,8.9,.14,.36,0,AY+.12,0)});
+
+ const guides=[];
+ [[-4.3,-3.3],[4.3,-3.3],[4.3,3.3],[-4.3,3.3]].forEach(([x,z])=>{
+  const l=new T.Line(new T.BufferGeometry().setFromPoints([new T.Vector3(x,0,z),new T.Vector3(x,15.6,z)]),new T.LineDashedMaterial({color:0x8a96a3,dashSize:.2,gapSize:.2,transparent:true}));
+  l.computeLineDistances();scene.add(l);guides.push(l)});
+
+ let e=0,eT=0,level='',selected=null,hover=null,auto=true;
+ let az=.7,tAz=.7,pol=1.15,tPol=1.15,zoom=1,tZoom=1,ty=4.4,lf=1,aspect=1;
+ const $=s=>root.querySelector(s),bEx=$('#bEx'),bRot=$('#bRot'),chips=$('#chips');
+ LEVELS.forEach(([k,n])=>{const b=document.createElement('button');b.textContent=n;b.dataset.k=k;b.onclick=()=>setLevel(k);chips.appendChild(b)});
+ function sync(){bEx.textContent=eT?'Собрать':'Разобрать';bEx.classList.toggle('on',!!eT);bRot.classList.toggle('on',auto);
+  chips.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.k===level))}
+ function setAuto(v){auto=v;sync()}
+ function setLevel(l){level=l;parts.forEach(p=>p.userData.dt=(!l||p.userData.level===l)?1:.12);
+  if(l)eT=1;if(selected&&l&&selected.userData.level!==l)select(null);sync()}
+ function toggleExplode(){eT=eT?0:1;if(!eT&&level)setLevel('');sync()}
+ bEx.onclick=toggleExplode;bRot.onclick=()=>setAuto(!auto);
+
+ function select(p){if(selected)selected.userData.sel=false;selected=p;if(p){p.userData.sel=true;p.userData.flash=1}drawPanel()}
+ function drawPanel(){
+  root.classList.toggle('open',!!selected);if(!selected)return;
+  const u=selected.userData,list=CAT[u.type];
+  panel.innerHTML=`<button id="x" aria-label="Закрыть">×</button><h2>${u.name}</h2><div class="badge">Демонстрационные материалы — не товары магазина</div><div class="grid">`+
+  list.map((it,i)=>{if(it.kind!=='flat'&&!it._u){it._cv=paint(it.kind,it.color);it._u=it._cv.toDataURL()}
+   return `<button class="card${i===u.mi?' on':''}" data-i="${i}"><i style="background:${it.kind==='flat'?it.color:`url(${it._u})`}"></i><b>${it.name}</b><small>${it.d}</small></button>`}).join('')+'</div>';
+  panel.querySelector('#x').onclick=()=>select(null);
+  panel.querySelectorAll('.card').forEach(c=>c.onclick=()=>{const it=list[+c.dataset.i];apply(selected,it);u.flash=1;
+   panel.querySelectorAll('.card').forEach(k=>k.classList.toggle('on',k===c));
+   opts.onMaterialChange&&opts.onMaterialChange({partId:u.id,type:u.type,materialId:it.id,demo:true})})}
+
+ const ray=new T.Raycaster(),mv=new T.Vector2();
+ function pick(cx,cy){const r=cv.getBoundingClientRect();mv.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1);ray.setFromCamera(mv,cam);
+  const h=ray.intersectObjects(meshes.filter(o=>{const u=o.userData.part.userData;return o.userData.part.visible&&u.dt>.5}),false);
+  return h.length?h[0].object.userData.part:null}
+ const ptrs=new Map();let moved=0,down=false,pinch=0,lastTap=0,ht=0;
+ const pd=()=>{const a=[...ptrs.values()];return Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1};
+ const cl=(v,a,b)=>Math.min(b,Math.max(a,v));
+ cv.addEventListener('pointerdown',ev=>{cv.setPointerCapture(ev.pointerId);ptrs.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+  if(ptrs.size===1){down=true;moved=0}else{moved=99;pinch=pd()}setAuto(false)},sig);
+ cv.addEventListener('pointermove',ev=>{const p=ptrs.get(ev.pointerId);
+  if(p){const dx=ev.clientX-p.x,dy=ev.clientY-p.y;p.x=ev.clientX;p.y=ev.clientY;
+   if(ptrs.size===1){tAz-=dx*.008;tPol=cl(tPol-dy*.006,.3,1.5);moved+=Math.abs(dx)+Math.abs(dy)}
+   else if(ptrs.size===2){const d=pd();tZoom=cl(tZoom*pinch/d,.35,1.6);pinch=d}}
+  else if(ev.pointerType==='mouse'&&performance.now()-ht>50){ht=performance.now();hover=pick(ev.clientX,ev.clientY);cv.style.cursor=hover?'pointer':'grab'}},sig);
+ const up=(ev,tap)=>{ptrs.delete(ev.pointerId);if(ptrs.size)return;
+  if(down&&tap&&moved<8){const p=pick(ev.clientX,ev.clientY),n=performance.now();
+   if(p&&n-lastTap<320){toggleExplode();lastTap=0}else{lastTap=n;select(p)}}down=false};
+ cv.addEventListener('pointerup',ev=>up(ev,true),sig);cv.addEventListener('pointercancel',ev=>up(ev,false),sig);
+ cv.addEventListener('wheel',ev=>{ev.preventDefault();tZoom=cl(tZoom*Math.exp(ev.deltaY*.001),.35,1.6)},{passive:false,signal:ac.signal});
+ addEventListener('keydown',ev=>{if(ev.key==='Escape')select(null)},sig);
+
+ const ro=new ResizeObserver(()=>{const w=root.clientWidth,h=root.clientHeight;renderer.setSize(w,h,false);aspect=w/h;cam.aspect=aspect;cam.updateProjectionMatrix()});
+ ro.observe(root);
+ let last=performance.now(),raf=0;
+ function loop(now){raf=requestAnimationFrame(loop);const dt=Math.min(.05,(now-last)/1000);last=now;
+  const k=1-Math.exp(-dt*3.5),kk=1-Math.exp(-dt*10);
+  e+=(eT-e)*k;const ee=e*e*(3-2*e);
+  if(auto)tAz+=dt*.18;
+  az+=(tAz-az)*kk;pol+=(tPol-pol)*kk;zoom+=(tZoom-zoom)*kk;
+  ty+=((level?LV_Y[level]:4.4+3.2*ee)-ty)*k;lf+=((level?.7:1)-lf)*k;
+  const dist=Math.max(26,21/aspect)*(1+.45*ee)*lf*zoom;
+  cam.position.set(dist*Math.sin(pol)*Math.sin(az),ty+dist*Math.cos(pol),dist*Math.sin(pol)*Math.cos(az));
+  cam.lookAt(0,ty,0);
+  parts.forEach(p=>{const u=p.userData;
+   u.d+=(u.dt-u.d)*k;u.lift+=((u.sel?1:0)-u.lift)*kk;u.flash=Math.max(0,u.flash-dt*2);
+   const hs=u.sel?.28:(p===hover?.1:0);
+   p.position.y=u.ex*ee+u.lift*.18;
+   const r=u.reveal?ee:1;p.visible=r>.01;
+   u.main.emissive.setHex(0xff8a3d);u.main.emissiveIntensity=Math.max(hs,u.flash*.5);
+   const o=r*u.d;if(Math.abs(o-u.lo)>.002){u.lo=o;
+    u.mats.forEach(m=>{m.opacity=m.userData.base*o;const t=m.opacity<.999;if(m.transparent!==t){m.transparent=t;m.needsUpdate=true}})}});
+  guides.forEach(g=>{g.visible=ee>.02;g.material.opacity=ee*.55});
+  renderer.render(scene,cam)}
+ sync();raf=requestAnimationFrame(loop);
+ return{destroy(){cancelAnimationFrame(raf);ac.abort();ro.disconnect();
+  scene.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)[].concat(o.material).forEach(m=>{m.map&&m.map.dispose();m.dispose()})});renderer.dispose()},
+  setMaterial(partId,materialId){const p=parts.find(q=>q.userData.id===partId),it=p&&CAT[p.userData.type].find(i=>i.id===materialId);if(it)apply(p,it)}};
+}
+window.houseConfigurator=HouseConfigurator(document.getElementById('app'));
+</script></body></html>

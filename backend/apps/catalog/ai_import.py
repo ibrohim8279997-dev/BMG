@@ -133,6 +133,24 @@ class FetchError(Exception):
     pass
 
 
+_NAT64 = (ipaddress.ip_network('64:ff9b::/96'), ipaddress.ip_network('64:ff9b:1::/48'))
+
+
+def _public(addr):
+    """is_global, also for IPv6 forms that carry an IPv4 address (mapped, IPv4-compatible, 6to4, NAT64): Python
+    reports e.g. 64:ff9b::a00:1 (NAT64 of 10.0.0.1) and ::127.0.0.1 as global."""
+    ip = ipaddress.ip_address(addr.split('%', 1)[0])
+    if not ip.is_global:
+        return False
+    if ip.version == 6:
+        embedded = ip.ipv4_mapped or ip.sixtofour
+        if embedded is None and (int(ip) >> 32 == 0 or any(ip in n for n in _NAT64)):
+            embedded = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+        if embedded is not None and not embedded.is_global:
+            return False
+    return True
+
+
 def _check_host(url):
     """Validate the URL and resolve it ONCE. Returns (hostname, path, public ip): the connection is then made to that
     exact ip, so a DNS-rebinding host cannot pass this check and then resolve to an internal address."""
@@ -146,7 +164,7 @@ def _check_host(url):
     if not infos:
         raise FetchError('dns')
     for info in infos:
-        if not ipaddress.ip_address(info[4][0]).is_global:   # no internal/loopback/link-local/metadata addresses
+        if not _public(info[4][0]):   # no internal/loopback/link-local/metadata addresses
             raise FetchError('private_address')
     path = (p.path or '/') + (f'?{p.query}' if p.query else '')
     return p.hostname, path, infos[0][4][0]

@@ -172,7 +172,8 @@ class SafeFetch(Base):
                     'https://user:pw@example.com/a.png'):
             with self.assertRaises(ai_import.FetchError):
                 ai_import.safe_fetch(url)
-        for ip in ('127.0.0.1', '10.1.2.3', '169.254.169.254', '::1', '192.168.0.5'):
+        for ip in ('127.0.0.1', '10.1.2.3', '169.254.169.254', '::1', '192.168.0.5', '::ffff:10.0.0.1',
+                   '64:ff9b::a00:1', '::127.0.0.1', '2002:7f00:1::1'):   # IPv4 hidden inside IPv6 forms
             with self.addr(ip), self.assertRaises(ai_import.FetchError):
                 ai_import.safe_fetch('https://example.com/a.png')
 

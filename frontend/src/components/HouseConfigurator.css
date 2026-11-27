@@ -1,0 +1,125 @@
+/* Layered 3D house configurator (calculator). Uses the site tokens from globals.css. */
+.cfg { position: relative; height: min(78vh, 680px); min-height: 420px; margin: 18px 0 22px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius);
+  background: radial-gradient(circle at 50% 42%, var(--surface), var(--surface-2)); }
+.cfg-cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; }
+.cfg-cv:active { cursor: grabbing; }
+.cfg-flat { position: absolute; inset: 0 0 64px; display: grid; place-items: center; align-content: center; gap: 8px; padding: 60px 20px 16px; }
+
+.cfg-top { position: absolute; z-index: 2; left: 12px; right: 12px; top: 12px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: space-between; pointer-events: none; transition: right var(--dur-3) var(--ease); }
+.cfg-top > * { pointer-events: auto; }
+.cfg.open .cfg-top { right: 368px; }
+.cfg-chips, .cfg-tools { display: flex; gap: 6px; }
+.cfg-chips { overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+.cfg-top button { flex: none; min-height: 38px; padding: 7px 13px; white-space: nowrap; cursor: pointer; color: var(--text); font: 600 .74rem var(--font); letter-spacing: .06em; text-transform: uppercase;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent); border-radius: var(--r-full); background: color-mix(in srgb, var(--surface) 86%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: background var(--dur-2), color var(--dur-2), border-color var(--dur-2), transform var(--dur-1); }
+.cfg-top button:hover { border-color: var(--accent); }
+.cfg-top button:active { transform: scale(.96); }
+.cfg-top button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+
+.cfg-hint { position: absolute; z-index: 1; left: 14px; bottom: 76px; max-width: 60%; margin: 0; color: var(--muted); font-size: .74rem; pointer-events: none;
+  padding: 5px 10px; border-radius: 8px; background: color-mix(in srgb, var(--surface) 72%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.cfg.open .cfg-hint { display: none; }
+/* asset progress: a slim glass card with a bar, bottom-left above the stats */
+.cfg-loading { position: absolute; z-index: 2; left: 14px; bottom: 108px; width: 220px; padding: 9px 12px 10px; display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: baseline; pointer-events: none;
+  background: color-mix(in srgb, var(--surface) 82%, transparent); border: 1px solid color-mix(in srgb, var(--line) 70%, transparent); border-radius: 10px;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 6px 20px rgba(0,0,0,.08); animation: cfg-in .35s var(--ease) both; }
+.cfg-loading span { font: 600 .64rem var(--font); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.cfg-loading b { font: 600 .74rem var(--font); font-variant-numeric: tabular-nums; color: var(--text); }
+.cfg-loading i { grid-column: 1 / -1; display: block; height: 3px; border-radius: 3px; background: color-mix(in srgb, var(--text) 10%, transparent); overflow: hidden; }
+.cfg-loading em { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width .4s var(--ease); }
+@keyframes cfg-in { from { opacity: 0; transform: translateY(6px); } }
+/* before the engine's first frame: a soft sweep over the canvas area */
+.cfg-boot { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--surface) 60%, transparent) 50%, transparent 70%) 0 0 / 250% 100%; animation: cfg-sweep 1.6s linear infinite; }
+.cfg-boot span { width: 34px; height: 34px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--text) 14%, transparent); border-top-color: var(--accent); animation: cfg-spin .9s linear infinite; }
+@keyframes cfg-sweep { to { background-position: -250% 0; } }
+@keyframes cfg-spin { to { transform: rotate(360deg); } }
+
+/* view mode: one segmented pill (exterior / cutaway / inside) */
+.cfg-seg { display: flex; padding: 3px; gap: 2px; border-radius: var(--r-full); border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  background: color-mix(in srgb, var(--surface) 86%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.cfg-top .cfg-seg button { min-height: 32px; padding: 5px 12px; border: 0; background: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.cfg-top .cfg-seg button:hover { color: var(--accent); }
+.cfg-top .cfg-seg button.on { background: var(--accent); color: var(--accent-contrast); }
+
+/* time of day: four tinted chips (a small sky disc each) and a fine slider */
+.cfg-tod { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.cfg-tod button { display: grid; justify-items: center; gap: 5px; padding: 8px 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); font: 600 .72rem var(--font); cursor: pointer; transition: border-color var(--dur-2), box-shadow var(--dur-2); }
+.cfg-tod button.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); background: var(--surface); }
+.cfg-tod i { width: 26px; height: 26px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--text) 12%, transparent); }
+.cfg-tod-morning i { background: radial-gradient(circle at 50% 75%, #ffd9a0 0 22%, #f4b98a 23%, #a9c6e4 80%); }
+.cfg-tod-day i { background: radial-gradient(circle at 60% 35%, #fff7d6 0 20%, #8fc1ec 22%, #5f9fd8 90%); }
+.cfg-tod-evening i { background: radial-gradient(circle at 50% 85%, #ffb469 0 20%, #e2775a 30%, #5a4a78 90%); }
+.cfg-tod-night i { background: radial-gradient(circle at 65% 35%, #e9eefc 0 14%, #22304f 16%, #0d1424 90%); }
+.cfg-time { width: 100%; margin: 10px 0 2px; min-height: 0; padding: 0; border: 0; background: none; accent-color: var(--accent); height: 24px; }
+.cfg-stats { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); margin: 0;
+  border-top: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 90%, transparent); transition: right var(--dur-3) var(--ease); }
+.cfg.open .cfg-stats { right: 356px; }
+.cfg-stats div { padding: 10px 16px; border-left: 1px solid var(--line); } .cfg-stats div:first-child { border-left: 0; }
+.cfg-stats dt { font-size: .64rem; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.cfg-stats dd { margin: 2px 0 0; font: 500 1.2rem/1.1 var(--font-display); font-variant-numeric: lining-nums tabular-nums; }
+
+.cfg-panel { position: absolute; z-index: 3; right: 12px; top: 12px; bottom: 12px; width: 332px; padding: 16px; overflow: auto; overscroll-behavior: contain;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-up);
+  transform: translateX(calc(100% + 24px)); transition: transform var(--dur-3) cubic-bezier(.2,.8,.2,1); }
+.cfg.open .cfg-panel { transform: none; }
+.cfg-panel h2 { margin: 0 0 12px; font-size: 1.1rem; padding-right: 44px; }
+.cfg-x { position: absolute; right: 10px; top: 10px; width: 38px; height: 38px; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--text); font-size: 20px; cursor: pointer; }
+.cfg-label, .cfg-panel .hs-num label { display: block; font-size: .68rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 14px 0 8px; }
+.cfg-zones { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; }
+.cfg-zones .cfg-label { width: 100%; margin-top: 0; }
+
+.cfg-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.cfg-card { display: block; text-align: left; padding: 6px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; cursor: pointer; white-space: normal; transition: transform var(--dur-1), box-shadow var(--dur-2); }
+.cfg-card:active { transform: scale(.97); }
+.cfg-card i { display: block; height: 60px; border-radius: 7px; background-size: cover; background-position: center; border: 1px solid var(--line); }
+.cfg-card b { display: block; margin-top: 6px; font-size: .8rem; line-height: 1.25; }
+.cfg-card.on { background: var(--surface); border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); animation: cfg-pop .3s; }
+@keyframes cfg-pop { 50% { transform: scale(1.04); } }
+.cfg-stock { display: block; margin-top: 2px; font-size: .68rem; color: var(--muted); }
+.cfg-stock.yes { color: var(--ok); } .cfg-stock.no { opacity: .8; }
+
+.cfg-colors > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.cfg .sw { position: relative; width: 32px; height: 32px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--text) 18%, transparent); cursor: pointer; padding: 0; transition: transform .35s var(--ease-out-expo), box-shadow var(--dur-2); }
+.cfg .sw:hover { transform: scale(1.12); }
+.cfg .sw.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.cfg .sw-custom { display: grid; place-items: center; background: conic-gradient(#e0533b, #e8b23a, #8fbf5a, #3fa7c9, #6b6fd6, #c04f9a, #e0533b); margin: 0; overflow: hidden; }
+.cfg .sw-custom input { position: absolute; inset: 0; opacity: 0; cursor: pointer; min-height: 0; padding: 0; }
+.cfg .sw-custom span { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: var(--surface); color: var(--text); font-weight: 700; font-size: .85rem; pointer-events: none; }
+
+.cfg-shop { margin-top: 4px; }
+.cfg-shop ul { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 6px; }
+.cfg-shop a { display: flex; gap: 10px; align-items: center; color: var(--text); text-decoration: none; }
+.cfg-shop li a:hover b { color: var(--accent); }
+.cfg-shop i { flex: none; width: 44px; height: 44px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface-2) center / cover no-repeat; }
+.cfg-shop b { display: block; font-size: .82rem; font-weight: 600; line-height: 1.25; }
+.cfg-shop small { display: block; font-size: .72rem; }
+
+.cfg-panel .hs-num-row { display: grid; grid-template-columns: 1fr 96px; gap: 12px; align-items: center; }
+.cfg-panel .hs-num-row input[type='range'] { min-height: 0; padding: 0; border: 0; background: none; accent-color: var(--accent); height: 28px; }
+.cfg-panel .hs-num-box { position: relative; display: block; }
+.cfg-panel .hs-num-box input { min-height: 40px; padding: 6px 30px 6px 10px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.cfg-panel .hs-num-box small { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.cfg-panel .hs-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cfg-panel .chip { min-height: 38px; padding: 7px 12px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: 600 .8rem var(--font); border-radius: 2px; cursor: pointer; }
+.cfg-panel .chip.on { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+
+/* settings tabs, walk */
+.cfg-tabs { display: flex; gap: 2px; margin: 0 44px 6px 0; border-bottom: 1px solid var(--line); }
+.cfg-tabs button { flex: 1; min-width: 0; padding: 10px 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; background: none; color: var(--muted); font: 600 .78rem var(--font); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.cfg-tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+.cfg-joy { position: absolute; z-index: 4; left: 22px; bottom: 120px; width: 112px; height: 112px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--bone) 55%, transparent); background: color-mix(in srgb, var(--ink) 28%, transparent); backdrop-filter: blur(6px); touch-action: none; display: grid; place-items: center; }
+.cfg-joy span { width: 44px; height: 44px; border-radius: 50%; background: color-mix(in srgb, var(--bone) 85%, transparent); box-shadow: 0 2px 10px rgba(0,0,0,.25); pointer-events: none; }
+
+@media (max-width: 720px) {
+  .cfg { height: 82vh; }
+  .cfg-panel { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 52%; transform: translateY(calc(100% + 16px)); }
+  .cfg.open .cfg-top { right: 12px; }
+  .cfg.open .cfg-stats { right: 0; }
+  .cfg-hint { max-width: 90%; }
+  .cfg-chips { width: 100%; }
+  .cfg-loading { width: auto; right: 14px; }
+  .cfg-top .cfg-seg button { padding: 5px 9px; }
+}
+@media (prefers-reduced-motion: reduce) { .cfg-panel, .cfg-top, .cfg-stats { transition: none; } .cfg-card.on, .cfg-loading, .cfg-boot, .cfg-boot span { animation: none; } }
